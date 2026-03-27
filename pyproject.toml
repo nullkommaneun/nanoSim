@@ -41,8 +41,11 @@ dev = [
     "ruff"            # Moderner Linter (ersetzt Flake8/Black)
 ]
 
+[project.scripts]
+nanosim = "nanosim.main:main"
+
 [project.urls]
-"Homepage" = "https://github.com/tom/nanosim"
+"Homepage" = "https://github.com/nullkommaneun/nanoSim"
 
 # 1:1 von Microsoft übernommen und für NanoSim adaptiert
 [tool.pytest.ini_options]
