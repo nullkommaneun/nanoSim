@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# WICHTIG: Sagt Setuptools, dass unser Code im src-Ordner liegt
+package-dir = {"" = "src"}
+packages = ["nanosim", "nanosim.core", "nanosim.agents", "nanosim.llm", "nanosim.world"]
+include-package-data = true
+
+[project]
+name = "nanosim"
+version = "0.1.0"
+authors = [
+  { name="Tom", email="tom@example.com" }
+]
+description = "NanoSim-Pet — Ein lokales Multi-Agenten-Terrarium mit Ollama."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+# Unser harter, schlanker Kern
+dependencies = [
+    "ollama>=0.4.0",
+    "pydantic>=2.5.0",
+    "python-dotenv",
+    "rich",
+]
+
+# Entwickler-Abhängigkeiten (installierbar mit pip install -e .[dev])
+[project.optional-dependencies]
+dev = [
+    "pytest", 
+    "pytest-cov", 
+    "pytest-timeout", 
+    "pytest-asyncio", # Wir brauchen das für async Tests
+    "ruff"            # Moderner Linter (ersetzt Flake8/Black)
+]
+
+[project.urls]
+"Homepage" = "https://github.com/tom/nanosim"
+
+# 1:1 von Microsoft übernommen und für NanoSim adaptiert
+[tool.pytest.ini_options]
+pythonpath = [
+  "src"
+]
+
+testpaths = [
+  "./tests/"
+]
+
+markers = [
+  "examples: mark a test as the execution of examples",
+  "core: mark a test as a core test for quick validation after important modifications",
+  "slow: mark a test as slow running (excluded from core tests)",
+  "llm: mark a test that actually ruft ein LLM auf (kostet Geld oder braucht lokales Ollama)",
+]
+addopts = "--cov=nanosim --cov-report=html --cov-report=xml --junit-xml=test-results.xml"
+timeout_exit = 0
