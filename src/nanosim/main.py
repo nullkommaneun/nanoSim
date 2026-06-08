@@ -20,6 +20,7 @@ from nanosim.persistence import (
     save_snapshot,
     world_from_snapshot,
 )
+from nanosim.replay import play_trace
 from nanosim.trace import TraceWriter
 from nanosim.world.personas import create_default_agents
 from nanosim.world.rooms import create_default_world
@@ -167,6 +168,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--trace", default=None,
         help="Lauf als JSONL-Trace mitschneiden (für Report/Replay)",
     )
+    parser.add_argument(
+        "--replay", default=None,
+        help="Aufgezeichneten Trace abspielen (ohne LLM) statt zu simulieren",
+    )
     return parser
 
 
@@ -174,6 +179,11 @@ def main() -> None:
     """CLI-Einstiegspunkt."""
     parser = build_parser()
     args = parser.parse_args()
+
+    # Replay-Modus: aufgezeichneten Lauf abspielen, ohne zu simulieren.
+    if args.replay:
+        play_trace(args.replay)
+        return
 
     asyncio.run(run_terrarium(
         model=args.model,
