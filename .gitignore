@@ -29,3 +29,6 @@ test-results.xml
 # OS
 .DS_Store
 Thumbs.db
+
+# Experiment-Labor (generierte Daten/Reports)
+experiments/results/
