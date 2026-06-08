@@ -69,6 +69,22 @@ class AgentAction(BaseModel):
     message: str | None = None       # Für speak-Actions
 
 
+class DecisionAction(BaseModel):
+    """Reine Handlungs-Entscheidung OHNE Text — für das schnelle Entscheidungs-Modell.
+
+    Im Zwei-Stufen-Router (TwoTierRouter) wählt ein kleines Modell nur die
+    Aktion und das Ziel; die eigentliche Rede formuliert separat ein großes
+    Modell (siehe SpeechLine).
+    """
+    action: ActionType
+    target: str | None = None
+
+
+class SpeechLine(BaseModel):
+    """Eine gesprochene Zeile — für das Dialog-Modell (großes Modell)."""
+    message: str
+
+
 class AgentProfile(BaseModel):
     """Vollständiges Profil eines Agenten."""
     agent_id: str

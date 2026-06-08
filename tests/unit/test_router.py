@@ -68,6 +68,31 @@ class TestCliPersistenceArgs:
         assert args.report == "out.html"
         assert build_parser().parse_args([]).report is None
 
+    def test_dialogue_model_arg_parsed(self):
+        from nanosim.main import build_parser
+
+        args = build_parser().parse_args(["--dialogue-model", "llama3.1:8b"])
+        assert args.dialogue_model == "llama3.1:8b"
+        assert build_parser().parse_args([]).dialogue_model is None
+
+
+class TestBuildRouter:
+    def test_single_model_returns_llama_router(self):
+        from nanosim.llm.router import LlamaRouter
+        from nanosim.main import _build_router
+
+        r = _build_router("m", None, "http://localhost:11434")
+        assert isinstance(r, LlamaRouter)
+
+    def test_dialogue_model_returns_two_tier(self):
+        from nanosim.llm.tiered import TwoTierRouter
+        from nanosim.main import _build_router
+
+        r = _build_router("small", "big", "http://localhost:11434")
+        assert isinstance(r, TwoTierRouter)
+        assert r._decider.model == "small"
+        assert r._talker.model == "big"
+
 
 class TestJsonExtraction:
     """Tests für _extract_json (statische Methode, kein Ollama nötig)."""

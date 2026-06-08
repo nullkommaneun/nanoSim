@@ -14,6 +14,7 @@ from nanosim.core.events import EventBus
 from nanosim.core.tick import TickEngine
 from nanosim.core.world import WorldRegistry
 from nanosim.llm.router import DEFAULT_MODEL, LlamaRouter
+from nanosim.llm.tiered import TwoTierRouter
 from nanosim.models import AgentProfile
 from nanosim.persistence import (
     load_snapshot,
@@ -27,6 +28,18 @@ from nanosim.world.personas import create_default_agents
 from nanosim.world.rooms import create_default_world
 
 console = Console()
+
+
+def _build_router(
+    model: str, dialogue_model: str | None, base_url: str,
+) -> LlamaRouter | TwoTierRouter:
+    """Den passenden Router bauen: Zwei-Stufen-Modus bei gesetztem dialogue_model,
+    sonst der klassische Einzel-Modell-Router."""
+    if dialogue_model:
+        return TwoTierRouter(
+            decision_model=model, dialogue_model=dialogue_model, base_url=base_url,
+        )
+    return LlamaRouter(model=model, base_url=base_url)
 
 
 def _build_world_and_profiles(
@@ -63,6 +76,7 @@ async def run_terrarium(
     model: str = DEFAULT_MODEL,
     num_ticks: int = 5,
     base_url: str = "http://localhost:11434",
+    dialogue_model: str | None = None,
     load_path: str | None = None,
     save_path: str | None = None,
     trace_path: str | None = None,
@@ -87,7 +101,9 @@ async def run_terrarium(
 
     # Welt + Profile bereitstellen (frisch oder aus Snapshot)
     world, profiles, start_tick = _build_world_and_profiles(load_path)
-    router = LlamaRouter(model=model, base_url=base_url)
+    router = _build_router(model, dialogue_model, base_url)
+    if dialogue_model:
+        console.print(f"Dialog-Modell: [cyan]{dialogue_model}[/cyan] (Zwei-Stufen-Modus)")
     bus = EventBus()
 
     agents: list[BaseAgent] = []
@@ -113,7 +129,7 @@ async def run_terrarium(
     recorder = None
     if trace_path:
         recorder = TraceWriter(
-            trace_path, model=model, agent_ids=[a.agent_id for a in agents],
+            trace_path, model=router.model, agent_ids=[a.agent_id for a in agents],
         )
 
     # Simulation starten (Tick-Zähler aus dem Snapshot fortsetzen)
@@ -154,7 +170,11 @@ async def run_terrarium(
 def build_parser() -> argparse.ArgumentParser:
     """Baue den CLI-Argument-Parser. Ausgelagert für Testbarkeit."""
     parser = argparse.ArgumentParser(description="NanoSim-Pet Terrarium")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="Ollama-Modellname")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="Ollama-Modellname (Einzel- bzw. Entscheidungs-Modell)")
+    parser.add_argument(
+        "--dialogue-model", default=None,
+        help="Optionales großes Modell nur für die Rede (Zwei-Stufen-Modus)",
+    )
     parser.add_argument("--ticks", type=int, default=5, help="Anzahl Ticks")
     parser.add_argument("--url", default="http://localhost:11434", help="Ollama URL")
     parser.add_argument(
@@ -198,6 +218,7 @@ def main() -> None:
         model=args.model,
         num_ticks=args.ticks,
         base_url=args.url,
+        dialogue_model=args.dialogue_model,
         load_path=args.load,
         save_path=args.save,
         trace_path=args.trace,
