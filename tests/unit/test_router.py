@@ -137,6 +137,32 @@ class TestThink:
         assert result.action == ActionType.IDLE
 
     @pytest.mark.asyncio
+    async def test_passes_json_schema_as_format(self, router: LlamaRouter):
+        """think() erzwingt strukturiertes JSON via Ollamas format-Parameter."""
+        mock_response = {"message": {"content": '{"action": "idle"}'}}
+        mock_chat = AsyncMock(return_value=mock_response)
+
+        with patch.object(router._client, "chat", mock_chat):
+            await router.think("Was machst du?", AgentAction)
+
+        fmt = mock_chat.call_args.kwargs["format"]
+        assert fmt == AgentAction.model_json_schema()
+
+    @pytest.mark.asyncio
+    async def test_retry_also_uses_format(self, router: LlamaRouter):
+        """Auch der Retry erzwingt das Schema."""
+        bad = {"message": {"content": "kaputt"}}
+        good = {"message": {"content": '{"action": "idle"}'}}
+        mock_chat = AsyncMock(side_effect=[bad, good])
+
+        with patch.object(router._client, "chat", mock_chat):
+            await router.think("Was machst du?", AgentAction)
+
+        assert mock_chat.call_count == 2
+        for call in mock_chat.call_args_list:
+            assert call.kwargs["format"] == AgentAction.model_json_schema()
+
+    @pytest.mark.asyncio
     async def test_retry_on_bad_json(self, router: LlamaRouter):
         """Erster Versuch kaputt → Retry → Erfolg."""
         bad_response = {"message": {"content": "Sure! {action: idle}"}}

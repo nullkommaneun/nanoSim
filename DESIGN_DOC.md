@@ -112,8 +112,17 @@ class LlamaRouter:
         """Sende Prompt an Ollama, parse JSON, validiere gegen Pydantic-Modell."""
 ```
 
-### JSON-Reparatur-Mechanismus
-Kleine Modelle (Llama3-8B, Phi3-mini) produzieren regelmäßig kaputtes JSON:
+### Structured Outputs (primärer Mechanismus)
+Das JSON-Schema des Antwort-Modells wird als `format` an Ollama übergeben
+(`client.chat(..., format=response_model.model_json_schema())`). Ollama
+erzwingt damit strukturell gültiges JSON — kaputte Antworten werden selten.
+Die **Temperatur bleibt bewusst beim Modell-Default**: Ein Terrarium lebt von
+Verhaltens-Vielfalt, nicht von maximaler Determiniertheit (`temperature=0`
+würde die Tiere repetitiv machen).
+
+### JSON-Reparatur-Mechanismus (Notnagel)
+Falls trotz `format` etwas schiefgeht, greift das alte Retry-Pattern. Kleine
+Modelle (Llama3-8B, Phi3-mini) produzieren sonst regelmäßig kaputtes JSON:
 - Fehlende schließende Klammern
 - Trailing Kommas
 - Unescapte Quotes in Strings

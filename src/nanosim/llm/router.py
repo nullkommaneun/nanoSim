@@ -66,7 +66,8 @@ class LlamaRouter:
         Returns:
             Eine validierte Instanz von response_model, oder None bei Fehler.
         """
-        schema_str = json.dumps(response_model.model_json_schema(), indent=2)
+        schema = response_model.model_json_schema()
+        schema_str = json.dumps(schema, indent=2)
         full_prompt = prompt + _JSON_INSTRUCTION.format(schema=schema_str)
 
         messages = []
@@ -75,7 +76,7 @@ class LlamaRouter:
         messages.append({"role": "user", "content": full_prompt})
 
         # --- Versuch 1 ---
-        raw = await self._call_ollama(messages)
+        raw = await self._call_ollama(messages, schema)
         result = self._parse_and_validate(raw, response_model)
         if result is not None:
             return result
@@ -87,7 +88,7 @@ class LlamaRouter:
         messages.append({"role": "assistant", "content": raw})
         messages.append({"role": "user", "content": retry_prompt})
 
-        raw = await self._call_ollama(messages)
+        raw = await self._call_ollama(messages, schema)
         result = self._parse_and_validate(raw, response_model)
         if result is not None:
             return result
@@ -95,12 +96,21 @@ class LlamaRouter:
         logger.error("Retry fehlgeschlagen. Agent wird idle.")
         return None
 
-    async def _call_ollama(self, messages: list[dict[str, str]]) -> str:
-        """Einen Chat-Call an Ollama senden, geschützt durch den Semaphore."""
+    async def _call_ollama(
+        self, messages: list[dict[str, str]], schema: dict,
+    ) -> str:
+        """Einen Chat-Call an Ollama senden, geschützt durch den Semaphore.
+
+        Das JSON-Schema wird als `format` übergeben (Structured Outputs):
+        Ollama erzwingt damit strukturell gültiges JSON. Temperatur bleibt
+        bewusst beim Modell-Default — wir wollen Verhaltens-Vielfalt, nicht
+        maximale Determiniertheit.
+        """
         async with self._semaphore:
             response = await self._client.chat(
                 model=self.model,
                 messages=messages,
+                format=schema,
             )
         return response["message"]["content"]
 

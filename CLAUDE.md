@@ -37,7 +37,7 @@ Source in `src/nanosim/`:
 - **models.py** — Alle Pydantic-Modelle: `BaseEvent`, `AgentStats`, `AgentProfile`, `AgentAction`, `Room`
 - **core/events.py** — `EventBus`: asyncio.Queue-basierter Pub/Sub mit `location_id`-Filterung
 - **core/world.py** — `WorldRegistry`: Room-Verwaltung, Agent-Bewegung
-- **llm/router.py** — `LlamaRouter`: Ollama-Client mit `asyncio.Semaphore(1)` (VRAM-Schutz), JSON-Extraktion, Pydantic-Validierung, Auto-Retry bei Parse-Fehlern
+- **llm/router.py** — `LlamaRouter`: Ollama-Client mit `asyncio.Semaphore(1)` (VRAM-Schutz), Structured Outputs (`format=schema` erzwingt JSON), Pydantic-Validierung, Auto-Retry als Notnagel
 - **agents/** — Agent-Logik (Persona, Memory)
 - **world/** — Room-Definitionen und Terrarium-Layouts
 - **persistence.py** — `Snapshot`-Modell + `save_snapshot`/`load_snapshot`/`world_from_snapshot`: Weltzustand als JSON speichern/laden (CLI: `--save`/`--load`)
@@ -49,7 +49,8 @@ Source in `src/nanosim/`:
 
 - **Tick-System**: Diskreter Zeitschritt. Pro Tick: Stats-Decay → LLM-Call pro Agent (sequentiell) → Actions ausführen → Events verteilen
 - **Semaphore(1)**: Nur ein Ollama-Call gleichzeitig (VRAM-Schutz für Consumer-GPUs)
-- **JSON-Retry**: Bei kaputtem JSON vom LLM → ein automatischer Retry mit Fehlerfeedback an das Modell
+- **Structured Outputs**: Das JSON-Schema wird als `format` an Ollama übergeben → strukturell erzwungenes JSON. Temperatur bleibt beim Modell-Default (Verhaltens-Vielfalt erwünscht, kein `temperature=0`).
+- **JSON-Retry**: Notnagel, falls trotz `format` etwas schiefgeht → ein automatischer Retry mit Fehlerfeedback an das Modell
 - **Memory**: Rolling-List (max 10 Einzeiler, FIFO). Kein LLM-basiertes Summarizing.
 - **Causality-Kappung**: `BaseEvent.causality_depth` begrenzt Reaktions-Ketten. Antwort auf Tiefe `d` → eigene Tiefe `d+1`; über `MAX_CAUSALITY_DEPTH` (5) schweigt der Agent. Verhindert Endlos-Echo zwischen Agenten.
 
