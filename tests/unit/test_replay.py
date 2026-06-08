@@ -93,6 +93,24 @@ class TestCliReplayBranch:
         assert called.get("play") == "x.jsonl"
         assert "ran" not in called
 
+    def test_report_writes_html_and_skips_simulation(self, monkeypatch):
+        """--replay + --report erzeugt HTML statt Konsolen-Wiedergabe, ohne Ollama."""
+        import sys
+
+        import nanosim.main as m
+
+        called = {}
+        monkeypatch.setattr(m, "write_report", lambda src, out: called.__setitem__("report", (src, out)))
+        monkeypatch.setattr(m, "play_trace", lambda p: called.__setitem__("play", p))
+        monkeypatch.setattr(m.asyncio, "run", lambda coro: called.__setitem__("ran", True))
+        monkeypatch.setattr(sys, "argv", ["nanosim", "--replay", "x.jsonl", "--report", "out.html"])
+
+        m.main()
+
+        assert called.get("report") == ("x.jsonl", "out.html")
+        assert "play" not in called
+        assert "ran" not in called
+
 
 class TestRenderTrace:
     def test_renders_all_ticks_in_order(self):

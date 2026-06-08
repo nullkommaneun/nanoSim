@@ -21,6 +21,7 @@ from nanosim.persistence import (
     world_from_snapshot,
 )
 from nanosim.replay import play_trace
+from nanosim.report import write_report
 from nanosim.trace import TraceWriter
 from nanosim.world.personas import create_default_agents
 from nanosim.world.rooms import create_default_world
@@ -172,6 +173,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--replay", default=None,
         help="Aufgezeichneten Trace abspielen (ohne LLM) statt zu simulieren",
     )
+    parser.add_argument(
+        "--report", default=None,
+        help="Aus dem --replay-Trace einen HTML-Report in diese Datei schreiben",
+    )
     return parser
 
 
@@ -180,9 +185,13 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    # Replay-Modus: aufgezeichneten Lauf abspielen, ohne zu simulieren.
+    # Replay-Modus: aufgezeichneten Lauf nutzen, ohne zu simulieren.
     if args.replay:
-        play_trace(args.replay)
+        if args.report:
+            write_report(args.replay, args.report)
+            console.print(f"[green]Report geschrieben:[/green] {args.report}")
+        else:
+            play_trace(args.replay)
         return
 
     asyncio.run(run_terrarium(

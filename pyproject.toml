@@ -33,12 +33,17 @@ dependencies = [
 
 # Entwickler-Abhängigkeiten (installierbar mit pip install -e .[dev])
 [project.optional-dependencies]
+# HTML-Report (optional): pip install -e .[report]
+report = [
+    "plotly>=5.0",
+]
 dev = [
-    "pytest", 
-    "pytest-cov", 
-    "pytest-timeout", 
+    "pytest",
+    "pytest-cov",
+    "pytest-timeout",
     "pytest-asyncio", # Wir brauchen das für async Tests
-    "ruff"            # Moderner Linter (ersetzt Flake8/Black)
+    "ruff",           # Moderner Linter (ersetzt Flake8/Black)
+    "plotly>=5.0",    # für die Report-Tests
 ]
 
 [project.scripts]

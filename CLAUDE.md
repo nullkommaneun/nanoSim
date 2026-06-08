@@ -41,6 +41,9 @@ Source in `src/nanosim/`:
 - **agents/** — Agent-Logik (Persona, Memory)
 - **world/** — Room-Definitionen und Terrarium-Layouts
 - **persistence.py** — `Snapshot`-Modell + `save_snapshot`/`load_snapshot`/`world_from_snapshot`: Weltzustand als JSON speichern/laden (CLI: `--save`/`--load`)
+- **trace.py** — `TraceWriter`/`load_trace`: Lauf als JSONL mitschneiden (TickRecord pro Tick, inkl. echter LLM-Entscheidungen). Feldnamen an OpenTelemetry-GenAI angelehnt (CLI: `--trace`)
+- **replay.py** — Aufgezeichneten Lauf ohne LLM abspielen (faithful by construction). `format_event`/`summarize_tick`/`render_trace_lines` + `play_trace` (CLI: `--replay`)
+- **report.py** — Eigenständiger HTML-Report aus einem Trace (Plotly, offline): Lebenskurven, Reaktionsketten (Causality-Baum), Raumwechsel, Tick-Protokoll. Optionale Abhängigkeit `[report]` (CLI: `--replay X --report Y.html`)
 
 ### Kernmechaniken
 
