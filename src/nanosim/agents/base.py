@@ -14,6 +14,7 @@ from nanosim.models import (
     BaseEvent,
     EventType,
 )
+from nanosim.world.objects import apply_object_effect
 
 if TYPE_CHECKING:
     from nanosim.core.world import WorldRegistry
@@ -142,13 +143,7 @@ class BaseAgent:
             return self._execute_move(action, world, tick)
 
         if action.action == ActionType.USE:
-            self.profile.add_memory(f"Tick {tick}: Benutzte {action.target}")
-            return BaseEvent(
-                type=EventType.AGENT_USE,
-                source=self.agent_id,
-                location_id=self.profile.location_id,
-                payload={"object": action.target or "?"},
-            )
+            return self._execute_use(action, world, tick)
 
         if action.action == ActionType.REST:
             self.profile.stats = self.profile.stats.model_copy(update={
@@ -164,6 +159,29 @@ class BaseAgent:
 
         # IDLE — kein Event
         return None
+
+    def _execute_use(
+        self, action: AgentAction, world: WorldRegistry, tick: int,
+    ) -> BaseEvent | None:
+        """Use-Action ausführen: Objekt muss im Raum sein, dann wirkt es auf die Stats."""
+        room = world.get_room(self.profile.location_id)
+        target = action.target or ""
+
+        if target not in room.objects:
+            self.profile.add_memory(
+                f"Tick {tick}: Wollte {target or '?'} benutzen, aber das ist nicht hier"
+            )
+            logger.info("[%s] '%s' ist nicht im Raum", self.profile.name, target)
+            return None
+
+        self.profile.stats = apply_object_effect(self.profile.stats, target)
+        self.profile.add_memory(f"Tick {tick}: Benutzte {target}")
+        return BaseEvent(
+            type=EventType.AGENT_USE,
+            source=self.agent_id,
+            location_id=self.profile.location_id,
+            payload={"object": target},
+        )
 
     def _execute_move(
         self, action: AgentAction, world: WorldRegistry, tick: int,

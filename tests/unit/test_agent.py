@@ -204,6 +204,29 @@ class TestAgentExecution:
         assert event.payload["object"] == "futternapf"
 
     @pytest.mark.asyncio
+    async def test_tick_use_applies_object_effect(self, agent, world):
+        """Ein vorhandenes Objekt benutzen verändert die Stats (futternapf → Hunger runter)."""
+        world.get_room("kitchen").occupants.add("cat_01")
+        agent.profile.stats = AgentStats(stamina=0.8, mood=0.8, hunger=0.9)
+        mock_resp = {"message": {"content": '{"action": "use", "target": "futternapf"}'}}
+        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+            event = await agent.tick(world, tick=0)
+        assert event is not None
+        assert event.type == EventType.AGENT_USE
+        assert agent.profile.stats.hunger < 0.9  # gefressen → weniger Hunger
+
+    @pytest.mark.asyncio
+    async def test_tick_use_absent_object_has_no_effect(self, agent, world):
+        """Ein Objekt benutzen, das nicht im Raum ist → kein Event, keine Wirkung."""
+        world.get_room("kitchen").occupants.add("cat_01")
+        before = agent.profile.stats.model_copy()
+        mock_resp = {"message": {"content": '{"action": "use", "target": "sofa"}'}}  # sofa nicht in kitchen
+        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+            event = await agent.tick(world, tick=0)
+        assert event is None
+        assert agent.profile.stats == before  # Stats unverändert
+
+    @pytest.mark.asyncio
     async def test_tick_rest(self, agent, world):
         old_stamina = agent.profile.stats.stamina
         mock_resp = {"message": {"content": '{"action": "rest"}'}}
