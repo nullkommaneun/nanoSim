@@ -142,6 +142,21 @@ class TestPromptBuilder:
         prompt = build_prompt(cat_profile, world)
         assert "Bleib hier" not in prompt
 
+    def test_build_prompt_urges_moving_when_alone_with_neighbor(self, cat_profile, world):
+        """Allein, aber jemand nebenan → klarer Aufruf, hinzugehen (mit Richtung)."""
+        world.get_room("garden").occupants.add("dog_01")  # garden = north von kitchen
+        prompt = build_prompt(cat_profile, world)
+        assert "geh zu ihm" in prompt.lower()
+        assert "north" in prompt
+
+    def test_build_prompt_no_move_urge_when_together(self, cat_profile, world):
+        """Ist schon jemand im Raum, gibt es keinen Geh-Aufruf (sondern Bleiben)."""
+        world.get_room("kitchen").occupants.add("cat_01")
+        world.get_room("kitchen").occupants.add("dog_01")
+        prompt = build_prompt(cat_profile, world)
+        assert "geh zu ihm" not in prompt.lower()
+        assert "Bleib hier" in prompt
+
 
 # ---------------------------------------------------------------------------
 # BaseAgent — Event-Handling

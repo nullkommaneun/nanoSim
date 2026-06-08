@@ -41,12 +41,19 @@ def build_prompt(agent: AgentProfile, world: WorldRegistry) -> str:
     nearby_str = "; ".join(nearby) if nearby else "niemand in der Nähe"
     inventory_str = ", ".join(agent.inventory) if agent.inventory else "leer"
 
-    # Situativer Anstoß: Ist jemand da, soll der Agent bleiben und reden,
-    # nicht weiterziehen (sonst kommen Gespräche nie in Gang).
-    stay_urge = (
-        "\n>> Bleib hier und sprich mit den anderen im Raum — geh jetzt NICHT weg!\n"
-        if others else ""
-    )
+    # Zwei situative Anstöße, die sich gegenseitig ausschließen:
+    # - jemand IST da  → bleiben und reden (sonst brechen Gespräche ab)
+    # - allein, aber jemand NEBENAN → gezielt hingehen (sonst trifft man sich nie)
+    if others:
+        stay_urge = (
+            "\n>> Bleib hier und sprich mit den anderen im Raum — geh jetzt NICHT weg!\n"
+        )
+    elif nearby:
+        stay_urge = (
+            f"\n>> Du bist allein, aber nebenan ist jemand — geh zu ihm! ({nearby_str})\n"
+        )
+    else:
+        stay_urge = ""
 
     return (
         f"Du bist {agent.name}. {agent.persona}\n\n"
