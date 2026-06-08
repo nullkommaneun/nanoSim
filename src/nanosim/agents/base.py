@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from nanosim.agents.prompt import build_prompt, build_system_prompt
 from nanosim.models import (
+    MAX_CAUSALITY_DEPTH,
     ActionType,
     AgentAction,
     AgentProfile,
@@ -32,6 +33,9 @@ class BaseAgent:
         self.profile = profile
         self.router = router
         self.inbox: list[BaseEvent] = []
+        # Tiefe der zuletzt gehörten Äußerung (für Causality-Kappung).
+        # None = in diesem Tick nichts gehört → frische Kette (Tiefe 0).
+        self._heard_speak_depth: int | None = None
 
     @property
     def agent_id(self) -> str:
@@ -47,6 +51,12 @@ class BaseAgent:
 
     def process_inbox(self, tick: int) -> None:
         """Inbox verarbeiten und relevante Infos ins Memory schreiben."""
+        # Tiefste gehörte Äußerung dieses Ticks merken; None wenn keine.
+        heard_depths = [
+            e.causality_depth for e in self.inbox if e.type == EventType.AGENT_SPEAK
+        ]
+        self._heard_speak_depth = max(heard_depths) if heard_depths else None
+
         for event in self.inbox:
             if event.type == EventType.AGENT_SPEAK:
                 msg = event.payload.get("message", "?")
@@ -95,12 +105,25 @@ class BaseAgent:
         """Eine Action ausführen und das resultierende Event zurückgeben."""
 
         if action.action == ActionType.SPEAK:
+            # Antwort auf Gehörtes → eine Ebene tiefer; spontan → Tiefe 0.
+            depth = self._heard_speak_depth + 1 if self._heard_speak_depth is not None else 0
+            if depth > MAX_CAUSALITY_DEPTH:
+                # Kette zu tief → schweigen, damit kein Endlos-Echo entsteht.
+                logger.info(
+                    "[%s] Schweigt: Reaktions-Kette zu tief (%d)",
+                    self.profile.name, depth,
+                )
+                self.profile.add_memory(
+                    f"Tick {tick}: Wollte antworten, hielt aber inne (zu viel Gerede)"
+                )
+                return None
             self.profile.add_memory(f"Tick {tick}: Ich sagte: '{action.message}'")
             return BaseEvent(
                 type=EventType.AGENT_SPEAK,
                 source=self.agent_id,
                 location_id=self.profile.location_id,
                 payload={"message": action.message or "..."},
+                causality_depth=depth,
             )
 
         if action.action == ActionType.MOVE:

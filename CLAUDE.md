@@ -40,6 +40,7 @@ Source in `src/nanosim/`:
 - **llm/router.py** — `LlamaRouter`: Ollama-Client mit `asyncio.Semaphore(1)` (VRAM-Schutz), JSON-Extraktion, Pydantic-Validierung, Auto-Retry bei Parse-Fehlern
 - **agents/** — Agent-Logik (Persona, Memory)
 - **world/** — Room-Definitionen und Terrarium-Layouts
+- **persistence.py** — `Snapshot`-Modell + `save_snapshot`/`load_snapshot`/`world_from_snapshot`: Weltzustand als JSON speichern/laden (CLI: `--save`/`--load`)
 
 ### Kernmechaniken
 
@@ -47,6 +48,7 @@ Source in `src/nanosim/`:
 - **Semaphore(1)**: Nur ein Ollama-Call gleichzeitig (VRAM-Schutz für Consumer-GPUs)
 - **JSON-Retry**: Bei kaputtem JSON vom LLM → ein automatischer Retry mit Fehlerfeedback an das Modell
 - **Memory**: Rolling-List (max 10 Einzeiler, FIFO). Kein LLM-basiertes Summarizing.
+- **Causality-Kappung**: `BaseEvent.causality_depth` begrenzt Reaktions-Ketten. Antwort auf Tiefe `d` → eigene Tiefe `d+1`; über `MAX_CAUSALITY_DEPTH` (5) schweigt der Agent. Verhindert Endlos-Echo zwischen Agenten.
 
 ## Design-Entscheidungen
 

@@ -14,6 +14,40 @@ def router():
     return LlamaRouter(model="llama3")
 
 
+class TestDefaultModel:
+    """Router-Default und CLI-Default müssen aus derselben Quelle kommen."""
+
+    def test_router_uses_shared_default(self):
+        from nanosim.llm.router import DEFAULT_MODEL
+
+        assert LlamaRouter().model == DEFAULT_MODEL
+
+    def test_cli_default_matches_router_default(self):
+        from nanosim.llm.router import DEFAULT_MODEL
+        from nanosim.main import build_parser
+
+        parser = build_parser()
+        assert parser.get_default("model") == DEFAULT_MODEL
+
+
+class TestCliPersistenceArgs:
+    """CLI unterstützt --save und --load für den Weltzustand."""
+
+    def test_save_and_load_args_parsed(self):
+        from nanosim.main import build_parser
+
+        args = build_parser().parse_args(["--save", "out.json", "--load", "in.json"])
+        assert args.save == "out.json"
+        assert args.load == "in.json"
+
+    def test_save_and_load_default_none(self):
+        from nanosim.main import build_parser
+
+        args = build_parser().parse_args([])
+        assert args.save is None
+        assert args.load is None
+
+
 class TestJsonExtraction:
     """Tests für _extract_json (statische Methode, kein Ollama nötig)."""
 

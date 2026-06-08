@@ -227,3 +227,68 @@ class TestAgentExecution:
         with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
             event = await agent.tick(world, tick=0)
         assert event is None  # idle → kein Event
+
+
+# ---------------------------------------------------------------------------
+# BaseAgent — Causality-Depth (Schutz vor Endlos-Event-Ketten)
+# ---------------------------------------------------------------------------
+
+class TestCausalityDepth:
+    @pytest.mark.asyncio
+    async def test_spontaneous_speak_has_depth_zero(self, agent, world):
+        """Wer nichts gehört hat, beginnt eine frische Kette bei Tiefe 0."""
+        world.get_room("kitchen").occupants.add("cat_01")
+        agent.process_inbox(tick=0)  # leere Inbox → nichts gehört
+        mock_resp = {"message": {"content": '{"action": "speak", "message": "Hallo?"}'}}
+        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+            event = await agent.tick(world, tick=0)
+        assert event is not None
+        assert event.causality_depth == 0
+
+    @pytest.mark.asyncio
+    async def test_reactive_speak_increments_depth(self, agent, world):
+        """Antwort auf eine gehörte Äußerung bei Tiefe d → eigene Äußerung Tiefe d+1."""
+        world.get_room("kitchen").occupants.add("cat_01")
+        agent.inbox.append(BaseEvent(
+            type=EventType.AGENT_SPEAK, source="dog_01",
+            payload={"message": "Wuff!"}, causality_depth=2,
+        ))
+        agent.process_inbox(tick=1)
+        mock_resp = {"message": {"content": '{"action": "speak", "message": "Miau!"}'}}
+        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+            event = await agent.tick(world, tick=1)
+        assert event is not None
+        assert event.causality_depth == 3
+
+    @pytest.mark.asyncio
+    async def test_speak_suppressed_at_max_depth(self, agent, world):
+        """Gehörte Tiefe am Limit → Antwort wird unterdrückt, Kette bricht."""
+        from nanosim.models import MAX_CAUSALITY_DEPTH
+
+        world.get_room("kitchen").occupants.add("cat_01")
+        agent.inbox.append(BaseEvent(
+            type=EventType.AGENT_SPEAK, source="dog_01",
+            payload={"message": "Echo"}, causality_depth=MAX_CAUSALITY_DEPTH,
+        ))
+        agent.process_inbox(tick=2)
+        mock_resp = {"message": {"content": '{"action": "speak", "message": "Echo"}'}}
+        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+            event = await agent.tick(world, tick=2)
+        assert event is None  # unterdrückt → kein weiteres Echo
+
+    @pytest.mark.asyncio
+    async def test_non_speak_action_not_suppressed_at_max_depth(self, agent, world):
+        """move/use/rest bilden keine Echo-Ketten und bleiben auch tief erlaubt."""
+        from nanosim.models import MAX_CAUSALITY_DEPTH
+
+        world.get_room("kitchen").occupants.add("cat_01")
+        agent.inbox.append(BaseEvent(
+            type=EventType.AGENT_SPEAK, source="dog_01",
+            payload={"message": "Echo"}, causality_depth=MAX_CAUSALITY_DEPTH,
+        ))
+        agent.process_inbox(tick=3)
+        mock_resp = {"message": {"content": '{"action": "move", "target": "north"}'}}
+        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+            event = await agent.tick(world, tick=3)
+        assert event is not None
+        assert event.type == EventType.AGENT_MOVE

@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
+# Standard-Ollama-Modell für alle Agenten. Einzige Quelle der Wahrheit,
+# die sowohl der Router als auch die CLI (main.py) verwenden.
+DEFAULT_MODEL = "llama3.1:8b"
+
 # Suffix der an jeden Prompt angehängt wird
 _JSON_INSTRUCTION = (
     "\n\nRespond ONLY with valid JSON matching this schema:\n"
@@ -39,7 +43,7 @@ class LlamaRouter:
 
     def __init__(
         self,
-        model: str = "llama3",
+        model: str = DEFAULT_MODEL,
         base_url: str = "http://localhost:11434",
     ) -> None:
         self._client = ollama.AsyncClient(host=base_url)

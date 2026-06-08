@@ -196,6 +196,35 @@ class TickEngine:
 
 ---
 
+## 4b. Persistence (Speicherstand)
+
+Der Weltzustand kann als JSON gespeichert und wieder geladen werden, sodass
+eine Simulation einen Neustart überlebt. Modul: `nanosim/persistence.py`.
+
+Ein `Snapshot` enthält:
+- `tick_count` — der Zeitstand der Welt
+- `rooms` — alle Rooms (inkl. `occupants`, `objects`, `exits`)
+- `profiles` — alle Agent-Profile (inkl. Stats, Gedächtnis, Position)
+
+```
+save_snapshot(path, world, profiles, tick_count)   # → JSON auf Platte
+load_snapshot(path) → Snapshot                      # ← JSON von Platte
+world_from_snapshot(snapshot) → WorldRegistry       # Welt rekonstruieren
+```
+
+CLI: `--save <datei>` speichert den Endzustand, `--load <datei>` setzt eine
+gespeicherte Welt fort (Tick-Zähler inklusive). Bewusst JSON statt SQLite:
+menschenlesbar, ohne Schema-Migrationen, perfekt für ein Terrarium dieser Größe.
+
+### Causality-Kappung (Endlos-Ketten-Schutz)
+`BaseEvent.causality_depth` zählt, wie tief eine Reaktions-Kette ist. Antwortet
+ein Agent auf eine gehörte Äußerung der Tiefe `d`, bekommt seine eigene die
+Tiefe `d+1`. Übersteigt das `MAX_CAUSALITY_DEPTH` (= 5), schweigt der Agent —
+so echoen sich zwei Agenten nicht endlos. Ohne gehörte Äußerung beginnt eine
+frische Kette bei Tiefe 0, neue Gespräche bleiben also jederzeit möglich.
+
+---
+
 ## 5. Zusammenspiel der Komponenten
 
 ```
@@ -235,7 +264,6 @@ class TickEngine:
 ## 6. Nicht-Ziele (bewusst ausgelassen)
 
 - **Kein Web-UI** — Terminal-Output via Rich reicht für v0.1
-- **Kein Persistence-Layer** — kein SQLite, kein Speichern auf Disk
 - **Kein Multi-Model-Routing** — ein Modell für alle Agenten
 - **Keine Tool-Use/Function-Calling** — Actions kommen als JSON aus dem LLM
 - **Kein verteiltes System** — ein Prozess, ein Event-Loop

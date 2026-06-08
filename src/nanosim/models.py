@@ -9,6 +9,12 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+# Maximale Tiefe einer Reaktions-Kette (speak → Antwort → Antwort → ...).
+# Wird die überschritten, unterdrückt der Agent seine Antwort, damit zwei
+# Agenten sich nicht endlos gegenseitig echoen.
+MAX_CAUSALITY_DEPTH = 5
+
+
 # ---------------------------------------------------------------------------
 # Events
 # ---------------------------------------------------------------------------
