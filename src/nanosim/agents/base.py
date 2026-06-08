@@ -36,6 +36,10 @@ class BaseAgent:
         # Tiefe der zuletzt gehörten Äußerung (für Causality-Kappung).
         # None = in diesem Tick nichts gehört → frische Kette (Tiefe 0).
         self._heard_speak_depth: int | None = None
+        # id der gehörten Äußerung, auf die reagiert wird (für Causality-Baum).
+        self._heard_speak_id: str | None = None
+        # Zuletzt getroffene Entscheidung (für Trace-Aufzeichnung / Replay).
+        self.last_action: AgentAction | None = None
 
     @property
     def agent_id(self) -> str:
@@ -51,11 +55,15 @@ class BaseAgent:
 
     def process_inbox(self, tick: int) -> None:
         """Inbox verarbeiten und relevante Infos ins Memory schreiben."""
-        # Tiefste gehörte Äußerung dieses Ticks merken; None wenn keine.
-        heard_depths = [
-            e.causality_depth for e in self.inbox if e.type == EventType.AGENT_SPEAK
-        ]
-        self._heard_speak_depth = max(heard_depths) if heard_depths else None
+        # Tiefste gehörte Äußerung dieses Ticks merken (id + Tiefe); None wenn keine.
+        heard = [e for e in self.inbox if e.type == EventType.AGENT_SPEAK]
+        if heard:
+            trigger = max(heard, key=lambda e: e.causality_depth)
+            self._heard_speak_depth = trigger.causality_depth
+            self._heard_speak_id = trigger.id
+        else:
+            self._heard_speak_depth = None
+            self._heard_speak_id = None
 
         for event in self.inbox:
             if event.type == EventType.AGENT_SPEAK:
@@ -92,6 +100,9 @@ class BaseAgent:
             logger.warning("[%s] Kein valides JSON → idle", self.profile.name)
             action = AgentAction(action=ActionType.IDLE)
 
+        # Entscheidung festhalten (Trace/Replay) — die tatsächlich gewählte Action.
+        self.last_action = action
+
         logger.info(
             "[%s] %s (target=%s, message=%s)",
             self.profile.name, action.action.value, action.target, action.message,
@@ -124,6 +135,7 @@ class BaseAgent:
                 location_id=self.profile.location_id,
                 payload={"message": action.message or "..."},
                 causality_depth=depth,
+                caused_by=self._heard_speak_id if depth > 0 else None,
             )
 
         if action.action == ActionType.MOVE:

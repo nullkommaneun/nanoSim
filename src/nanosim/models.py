@@ -39,6 +39,7 @@ class BaseEvent(BaseModel):
     location_id: str | None = None       # Room-Filter, None = Broadcast
     payload: dict[str, Any] = {}
     causality_depth: int = 0             # Verhindert Endlos-Event-Ketten
+    caused_by: str | None = None         # id des auslösenden Events (für Causality-Baum)
 
 
 # ---------------------------------------------------------------------------

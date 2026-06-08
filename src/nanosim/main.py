@@ -20,6 +20,7 @@ from nanosim.persistence import (
     save_snapshot,
     world_from_snapshot,
 )
+from nanosim.trace import TraceWriter
 from nanosim.world.personas import create_default_agents
 from nanosim.world.rooms import create_default_world
 
@@ -62,6 +63,7 @@ async def run_terrarium(
     base_url: str = "http://localhost:11434",
     load_path: str | None = None,
     save_path: str | None = None,
+    trace_path: str | None = None,
 ) -> None:
     """Starte eine NanoSim-Pet Simulation.
 
@@ -71,6 +73,7 @@ async def run_terrarium(
         base_url: Ollama-Server URL.
         load_path: Optionaler Snapshot, aus dem fortgesetzt wird.
         save_path: Optionale Datei, in die der Endzustand gespeichert wird.
+        trace_path: Optionale Datei, in die der Lauf als JSONL-Trace mitgeschnitten wird.
     """
     setup_logging()
 
@@ -104,13 +107,27 @@ async def run_terrarium(
             location_fn=lambda a=agent: a.profile.location_id,
         )
 
+    # Optionaler Trace-Recorder
+    recorder = None
+    if trace_path:
+        recorder = TraceWriter(
+            trace_path, model=model, agent_ids=[a.agent_id for a in agents],
+        )
+
     # Simulation starten (Tick-Zähler aus dem Snapshot fortsetzen)
-    engine = TickEngine(agents=agents, world=world, bus=bus)
+    engine = TickEngine(agents=agents, world=world, bus=bus, recorder=recorder)
     engine.tick_count = start_tick
 
     console.rule("[bold yellow]Simulation startet[/bold yellow]")
-    await engine.run(num_ticks=num_ticks)
+    try:
+        await engine.run(num_ticks=num_ticks)
+    finally:
+        if recorder is not None:
+            recorder.close()
     console.rule("[bold green]Simulation beendet[/bold green]")
+
+    if trace_path:
+        console.print(f"\n[green]Trace gespeichert:[/green] {trace_path}")
 
     # Endzustand optional speichern
     if save_path:
@@ -146,6 +163,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--save", default=None,
         help="Weltzustand nach der Simulation in diese Datei speichern",
     )
+    parser.add_argument(
+        "--trace", default=None,
+        help="Lauf als JSONL-Trace mitschneiden (für Report/Replay)",
+    )
     return parser
 
 
@@ -160,6 +181,7 @@ def main() -> None:
         base_url=args.url,
         load_path=args.load,
         save_path=args.save,
+        trace_path=args.trace,
     ))
 
 

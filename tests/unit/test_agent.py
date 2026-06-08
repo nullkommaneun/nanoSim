@@ -277,6 +277,32 @@ class TestCausalityDepth:
         assert event is None  # unterdrückt → kein weiteres Echo
 
     @pytest.mark.asyncio
+    async def test_reactive_speak_records_caused_by(self, agent, world):
+        """Antwort auf eine gehörte Äußerung trägt deren id als caused_by."""
+        world.get_room("kitchen").occupants.add("cat_01")
+        agent.inbox.append(BaseEvent(
+            id="evt_dog_hello", type=EventType.AGENT_SPEAK, source="dog_01",
+            payload={"message": "Wuff!"}, causality_depth=1,
+        ))
+        agent.process_inbox(tick=1)
+        mock_resp = {"message": {"content": '{"action": "speak", "message": "Miau!"}'}}
+        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+            event = await agent.tick(world, tick=1)
+        assert event is not None
+        assert event.caused_by == "evt_dog_hello"
+
+    @pytest.mark.asyncio
+    async def test_spontaneous_speak_has_no_cause(self, agent, world):
+        """Spontane Äußerung (nichts gehört) hat kein caused_by."""
+        world.get_room("kitchen").occupants.add("cat_01")
+        agent.process_inbox(tick=0)
+        mock_resp = {"message": {"content": '{"action": "speak", "message": "Hallo?"}'}}
+        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+            event = await agent.tick(world, tick=0)
+        assert event is not None
+        assert event.caused_by is None
+
+    @pytest.mark.asyncio
     async def test_non_speak_action_not_suppressed_at_max_depth(self, agent, world):
         """move/use/rest bilden keine Echo-Ketten und bleiben auch tief erlaubt."""
         from nanosim.models import MAX_CAUSALITY_DEPTH

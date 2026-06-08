@@ -136,8 +136,60 @@ class TestTickEngine:
 
         await engine.step()
 
-        # Nach dem Tick hat einer der Agents das Event in der inbox
-        # (wird im nächsten Tick verarbeitet)
-        has_inbox = any(len(a.inbox) > 0 for a in engine.agents)
         # Events wurden über drain() zugestellt — prüfe ob drain tatsächlich lief
         assert engine.tick_count == 1
+
+
+class TestTickEngineRecording:
+    @pytest.mark.asyncio
+    async def test_records_each_tick_with_decisions(self, engine, tmp_path):
+        """Mit Recorder wird pro Tick eine Entscheidung je Agent aufgezeichnet."""
+        from nanosim.models import AgentAction, ActionType
+        from nanosim.trace import TraceWriter, load_trace
+
+        idle = AgentAction(action=ActionType.IDLE)
+        for agent in engine.agents:
+            agent.router.think = AsyncMock(return_value=idle)
+
+        writer = TraceWriter(
+            tmp_path / "run.jsonl", model="m",
+            agent_ids=[a.agent_id for a in engine.agents],
+        )
+        engine.recorder = writer
+        await engine.run(num_ticks=2)
+        writer.close()
+
+        trace = load_trace(tmp_path / "run.jsonl")
+        assert [t.tick for t in trace.ticks] == [0, 1]
+        assert {d.agent_id for d in trace.ticks[0].decisions} == {"cat_01", "dog_01"}
+        assert len(trace.ticks[0].agents) == 2
+
+    @pytest.mark.asyncio
+    async def test_records_speak_decision_and_event(self, engine, tmp_path):
+        """Eine Speak-Entscheidung landet als Decision UND als Event im Trace."""
+        from nanosim.models import AgentAction, ActionType
+        from nanosim.trace import TraceWriter, load_trace
+
+        async def mock_think(prompt, response_model, system=None):
+            if mock_think.calls == 0:
+                mock_think.calls += 1
+                return AgentAction(action=ActionType.SPEAK, message="Miau!")
+            mock_think.calls += 1
+            return AgentAction(action=ActionType.IDLE)
+        mock_think.calls = 0
+
+        for agent in engine.agents:
+            agent.router.think = mock_think
+
+        writer = TraceWriter(
+            tmp_path / "run.jsonl", model="m",
+            agent_ids=[a.agent_id for a in engine.agents],
+        )
+        engine.recorder = writer
+        await engine.step()
+        writer.close()
+
+        trace = load_trace(tmp_path / "run.jsonl")
+        decisions = trace.ticks[0].decisions
+        assert any(d.action == ActionType.SPEAK and d.message == "Miau!" for d in decisions)
+        assert any(e.type.value == "agent_speak" for e in trace.ticks[0].events)

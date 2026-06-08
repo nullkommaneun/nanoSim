@@ -47,6 +47,13 @@ class TestCliPersistenceArgs:
         assert args.save is None
         assert args.load is None
 
+    def test_trace_arg_parsed(self):
+        from nanosim.main import build_parser
+
+        args = build_parser().parse_args(["--trace", "run.jsonl"])
+        assert args.trace == "run.jsonl"
+        assert build_parser().parse_args([]).trace is None
+
 
 class TestJsonExtraction:
     """Tests für _extract_json (statische Methode, kein Ollama nötig)."""

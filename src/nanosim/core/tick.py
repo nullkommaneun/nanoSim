@@ -6,12 +6,14 @@ import logging
 import random
 from typing import TYPE_CHECKING
 
-from nanosim.models import AgentStats
+from nanosim.models import ActionType, AgentStats, BaseEvent
+from nanosim.trace import AgentSnapshot, Decision, TickRecord
 
 if TYPE_CHECKING:
     from nanosim.agents.base import BaseAgent
     from nanosim.core.events import EventBus
     from nanosim.core.world import WorldRegistry
+    from nanosim.trace import TraceWriter
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +47,12 @@ class TickEngine:
         agents: list[BaseAgent],
         world: WorldRegistry,
         bus: EventBus,
+        recorder: TraceWriter | None = None,
     ) -> None:
         self.agents = agents
         self.world = world
         self.bus = bus
+        self.recorder = recorder
         self.tick_count: int = 0
 
     async def run(self, num_ticks: int | None = None) -> None:
@@ -81,9 +85,11 @@ class TickEngine:
         shuffled = list(self.agents)
         random.shuffle(shuffled)
 
+        emitted: list[BaseEvent] = []
         for agent in shuffled:
             event = await agent.tick(self.world, self.tick_count)
             if event is not None:
+                emitted.append(event)
                 await self.bus.publish(event)
                 logger.info(
                     "[%s] → %s", agent.profile.name, event.type.value,
@@ -92,4 +98,36 @@ class TickEngine:
         # 4) Events zustellen
         await self.bus.drain()
 
+        # 5) Optional: diesen Tick aufzeichnen
+        if self.recorder is not None:
+            self._record_tick(emitted)
+
         self.tick_count += 1
+
+    def _record_tick(self, emitted: list[BaseEvent]) -> None:
+        """Den aktuellen Tick als TickRecord an den Recorder geben."""
+        snapshots = [
+            AgentSnapshot(
+                agent_id=a.profile.agent_id,
+                name=a.profile.name,
+                location_id=a.profile.location_id,
+                stats=a.profile.stats,
+            )
+            for a in self.agents
+        ]
+        decisions = [
+            Decision(
+                agent_id=a.profile.agent_id,
+                action=a.last_action.action if a.last_action else ActionType.IDLE,
+                target=a.last_action.target if a.last_action else None,
+                message=a.last_action.message if a.last_action else None,
+            )
+            for a in self.agents
+        ]
+        record = TickRecord(
+            tick=self.tick_count,
+            agents=snapshots,
+            decisions=decisions,
+            events=emitted,
+        )
+        self.recorder.record_tick(record)
