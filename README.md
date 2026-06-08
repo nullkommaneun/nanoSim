@@ -115,22 +115,24 @@ nanosim --help
 Erwartete Ausgabe:
 
 ```
-usage: nanosim [-h] [--model MODEL] [--ticks TICKS] [--url URL] [--load LOAD]
-               [--save SAVE] [--trace TRACE] [--replay REPLAY]
-               [--report REPORT]
+usage: nanosim [-h] [--model MODEL] [--dialogue-model DIALOGUE_MODEL]
+               [--ticks TICKS] [--url URL] [--load LOAD] [--save SAVE]
+               [--trace TRACE] [--replay REPLAY] [--report REPORT]
 
 NanoSim-Pet Terrarium
 
 options:
-  -h, --help       show this help message and exit
-  --model MODEL    Ollama-Modellname
-  --ticks TICKS    Anzahl Ticks
-  --url URL        Ollama URL
-  --load LOAD      Snapshot-Datei laden und Simulation fortsetzen
-  --save SAVE      Weltzustand nach der Simulation in diese Datei speichern
-  --trace TRACE    Lauf als JSONL-Trace mitschneiden (für Report/Replay)
-  --replay REPLAY  Aufgezeichneten Trace abspielen (ohne LLM) statt zu simulieren
-  --report REPORT  Aus dem --replay-Trace einen HTML-Report in diese Datei schreiben
+  -h, --help            show this help message and exit
+  --model MODEL         Ollama-Modellname (Einzel- bzw. Entscheidungs-Modell)
+  --dialogue-model DIALOGUE_MODEL
+                        Optionales großes Modell nur für die Rede (Zwei-Stufen-Modus)
+  --ticks TICKS         Anzahl Ticks
+  --url URL             Ollama URL
+  --load LOAD           Snapshot-Datei laden und Simulation fortsetzen
+  --save SAVE           Weltzustand nach der Simulation in diese Datei speichern
+  --trace TRACE         Lauf als JSONL-Trace mitschneiden (für Report/Replay)
+  --replay REPLAY       Aufgezeichneten Trace abspielen (ohne LLM) statt zu simulieren
+  --report REPORT       Aus dem --replay-Trace einen HTML-Report in diese Datei schreiben
 ```
 
 ### Deaktivieren
@@ -191,6 +193,44 @@ nanosim --model gemma3:4b --ticks 10 --url http://localhost:11434
 ```bash
 python -m nanosim.main --model llama3.1:8b --ticks 3
 ```
+
+---
+
+## Lebendige Interaktion: Zwei-Stufen-Modell & Sozial-Trieb
+
+Damit die Tiere sich **eigenständig treffen und echte Gespräche führen**, sind zwei Dinge entscheidend: ein fähiges Entscheidungs-Modell und ein eingebauter Sozial-Trieb.
+
+### Sozial-Trieb (immer aktiv)
+
+Jeder Agent nimmt Tiere in **direkt angrenzenden Räumen** wahr (inklusive Richtung) und bekommt situative Anstöße:
+- ist jemand bei ihm im Raum → **bleiben und reden** (Gespräch nicht abbrechen),
+- ist er allein, aber jemand nebenan → **gezielt hingehen**.
+
+So versammeln sich die Tiere von selbst und reagieren aufeinander (statt allein vor sich hin zu reden).
+
+### Zwei-Stufen-Modell (`--dialogue-model`)
+
+Ein etabliertes Muster (*Model Cascading*): Ein **kleines, schnelles Modell** trifft jede Tick-Entscheidung (billig), und nur wenn gesprochen wird, formuliert ein **großes Modell** die Rede (teuer, aber selten). An die Hardware anpassbar über die Modellwahl.
+
+```bash
+# Klein entscheidet, groß spricht
+nanosim --model llama3.2:3b --dialogue-model llama3.1:8b
+```
+
+### Empfohlener Aufbau (empirisch ermittelt)
+
+| Aufbau | Verhalten |
+|--------|-----------|
+| `gemma3:1b` allein | bewegt sich nie → keine Begegnungen |
+| `llama3.1:8b` für alles | gute Gespräche, aber rechenintensiv |
+| **`llama3.2:3b` entscheidet + `llama3.1:8b` spricht** | **bester Kompromiss: Tiere versammeln sich autonom, führen kontextbewusste Gespräche — bei geringerer Last** |
+
+```bash
+# Empfehlung: lebendige Interaktion, effizient
+nanosim --model llama3.2:3b --dialogue-model llama3.1:8b --ticks 10 --trace lauf.jsonl
+```
+
+> **Faustregel:** Das Entscheidungs-Modell darf *klein, aber nicht winzig* sein — ein 1B-Modell ist zu schwach, um zielgerichtet zu navigieren. Ab ~3B funktioniert der Sozial-Trieb zuverlässig.
 
 ---
 
