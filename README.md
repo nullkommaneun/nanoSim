@@ -99,6 +99,9 @@ pip install -e .
 
 # Mit Entwickler-Tools (Tests, Linter)
 pip install -e ".[dev]"
+
+# Mit HTML-Report-Unterstützung (Plotly)
+pip install -e ".[report]"
 ```
 
 `-e` steht für "editable" — Änderungen am Code wirken sofort, ohne Neuinstallation.
@@ -112,15 +115,22 @@ nanosim --help
 Erwartete Ausgabe:
 
 ```
-usage: nanosim [-h] [--model MODEL] [--ticks TICKS] [--url URL]
+usage: nanosim [-h] [--model MODEL] [--ticks TICKS] [--url URL] [--load LOAD]
+               [--save SAVE] [--trace TRACE] [--replay REPLAY]
+               [--report REPORT]
 
 NanoSim-Pet Terrarium
 
 options:
-  -h, --help     show this help message and exit
-  --model MODEL  Ollama-Modellname
-  --ticks TICKS  Anzahl Ticks
-  --url URL      Ollama URL
+  -h, --help       show this help message and exit
+  --model MODEL    Ollama-Modellname
+  --ticks TICKS    Anzahl Ticks
+  --url URL        Ollama URL
+  --load LOAD      Snapshot-Datei laden und Simulation fortsetzen
+  --save SAVE      Weltzustand nach der Simulation in diese Datei speichern
+  --trace TRACE    Lauf als JSONL-Trace mitschneiden (für Report/Replay)
+  --replay REPLAY  Aufgezeichneten Trace abspielen (ohne LLM) statt zu simulieren
+  --report REPORT  Aus dem --replay-Trace einen HTML-Report in diese Datei schreiben
 ```
 
 ### Deaktivieren
@@ -180,6 +190,75 @@ nanosim --model gemma3:4b --ticks 10 --url http://localhost:11434
 
 ```bash
 python -m nanosim.main --model llama3.1:8b --ticks 3
+```
+
+---
+
+## Speicherstand (Snapshot)
+
+Die Welt lässt sich nach einem Lauf speichern und später fortsetzen — der Tick-Zähler läuft dabei weiter. So überlebt eine Simulation den Neustart.
+
+```bash
+# Lauf über 5 Ticks und Endzustand speichern
+nanosim --ticks 5 --save welt.json
+
+# Später: gespeicherte Welt laden und 5 weitere Ticks simulieren
+nanosim --load welt.json --ticks 5 --save welt.json
+```
+
+Der Snapshot ist eine schlichte, menschenlesbare JSON-Datei (Räume + alle Tiere mit Stats, Gedächtnis und Position + Tick-Zähler) — kein Server, keine Datenbank.
+
+---
+
+## nanoLab — Aufzeichnen, Abspielen, Report
+
+nanoLab macht jeden Lauf nachvollziehbar: mitschneiden, ohne Ollama wieder abspielen und als teilbaren HTML-Report exportieren.
+
+### Lauf mitschneiden (`--trace`)
+
+```bash
+nanosim --ticks 20 --trace run.jsonl
+```
+
+Schreibt eine JSONL-Datei mit allem, was passiert ist — Stats, Bewegungen, Gespräche **und die tatsächlichen KI-Entscheidungen** jedes Tiers pro Tick. Die Feldnamen lehnen sich an die OpenTelemetry-GenAI-Konventionen an, damit der Trace sich später ohne Neubau in Standard-Tools (Langfuse, Arize Phoenix, …) überführen lässt.
+
+### Lauf abspielen (`--replay`)
+
+```bash
+nanosim --replay run.jsonl
+```
+
+Spielt einen aufgezeichneten Lauf **komplett ohne Ollama** wieder ab — sofort, offline, exakt so wie er passiert ist. Das ist die ehrliche Antwort auf "Reproduzierbarkeit": Statt zu versuchen, das LLM deterministisch zu zwingen (auf lokalen Modellen praktisch unmöglich), wird die *aufgezeichnete* Spur faithful wiedergegeben.
+
+```
+── TICK 0 ──────────────────────────────
+  💬 cat_01 sagt: "Wo ist meine Milch?"
+  🚶 dog_01 geht von garden nach kitchen
+     Whiskers @ kitchen | Energie=0.97 Stimmung=0.98 Hunger=0.05
+```
+
+### HTML-Report erzeugen (`--report`)
+
+```bash
+# Voraussetzung: pip install -e ".[report]"
+nanosim --replay run.jsonl --report run.html
+```
+
+Erzeugt **eine eigenständige HTML-Datei** (Plotly eingebettet, kein Server, kein CDN, per Doppelklick im Browser, komplett offline) mit vier Abschnitten:
+
+- **Lebenskurven** — Energie/Stimmung/Hunger jedes Tiers über die Ticks
+- **Reaktionsketten** — der Causality-Baum der Gespräche (wer reagiert auf wen)
+- **Raumwechsel** — wer war wann in welchem Raum
+- **Tick-Protokoll** — die lesbare Geschichte des Laufs
+
+### Typischer Workflow
+
+```bash
+# 1. Einen Lauf simulieren und mitschneiden
+nanosim --ticks 30 --trace lauf.jsonl
+
+# 2. Report erzeugen und im Browser ansehen
+nanosim --replay lauf.jsonl --report lauf.html
 ```
 
 ---
@@ -367,10 +446,14 @@ Kleine Modelle (Llama3-8B, Phi3-mini, Gemma) produzieren regelmäßig kaputtes J
 src/nanosim/
 ├── models.py           Pydantic-Modelle (BaseEvent, AgentStats, Room, ...)
 ├── main.py             CLI-Einstiegspunkt
+├── persistence.py      Snapshot speichern/laden (--save / --load)
+├── trace.py            TraceWriter/load_trace — Lauf als JSONL (--trace)
+├── replay.py           Lauf ohne LLM abspielen (--replay)
+├── report.py           Eigenständiger HTML-Report via Plotly (--report)
 ├── core/
 │   ├── events.py       EventBus (asyncio.Queue + Room-Filterung)
 │   ├── world.py        WorldRegistry
-│   └── tick.py         TickEngine + decay_stats
+│   └── tick.py         TickEngine + decay_stats (optionaler Trace-Recorder)
 ├── agents/
 │   ├── base.py         BaseAgent (Inbox, Tick, Action-Execution)
 │   └── prompt.py       Prompt-Builder
@@ -381,7 +464,7 @@ src/nanosim/
     └── personas.py     Agent-Personas (Katze, Hund, Papagei)
 
 tests/
-├── unit/               84 Tests (kein Ollama nötig)
+├── unit/               127 Tests (kein Ollama nötig)
 └── integration/        1 E2E-Test (braucht Ollama)
 ```
 
