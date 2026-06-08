@@ -125,6 +125,23 @@ class TestPromptBuilder:
         system = build_system_prompt(cat_profile).lower()
         assert "gesellig" in system or "andere" in system
 
+    def test_system_prompt_emphasizes_staying(self, cat_profile):
+        """Der Charakter betont eindeutig: bei Gesellschaft bleiben."""
+        system = build_system_prompt(cat_profile).lower()
+        assert "bleib bei ihnen" in system
+
+    def test_build_prompt_urges_staying_when_others_present(self, cat_profile, world):
+        """Ist jemand im Raum, drängt der Prompt situativ zum Bleiben."""
+        world.get_room("kitchen").occupants.add("cat_01")
+        world.get_room("kitchen").occupants.add("dog_01")
+        prompt = build_prompt(cat_profile, world)
+        assert "Bleib hier" in prompt
+
+    def test_build_prompt_no_stay_urge_when_alone(self, cat_profile, world):
+        """Ist das Tier allein, gibt es keinen Bleib-Aufruf."""
+        prompt = build_prompt(cat_profile, world)
+        assert "Bleib hier" not in prompt
+
 
 # ---------------------------------------------------------------------------
 # BaseAgent — Event-Handling

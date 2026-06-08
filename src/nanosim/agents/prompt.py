@@ -41,13 +41,21 @@ def build_prompt(agent: AgentProfile, world: WorldRegistry) -> str:
     nearby_str = "; ".join(nearby) if nearby else "niemand in der Nähe"
     inventory_str = ", ".join(agent.inventory) if agent.inventory else "leer"
 
+    # Situativer Anstoß: Ist jemand da, soll der Agent bleiben und reden,
+    # nicht weiterziehen (sonst kommen Gespräche nie in Gang).
+    stay_urge = (
+        "\n>> Bleib hier und sprich mit den anderen im Raum — geh jetzt NICHT weg!\n"
+        if others else ""
+    )
+
     return (
         f"Du bist {agent.name}. {agent.persona}\n\n"
         f"Ort: {room.name} — {room.description}\n"
         f"Objekte hier: {objects_str}\n"
         f"Andere hier: {others_str}\n"
         f"In der Nähe: {nearby_str}\n"
-        f"Ausgänge: {exits if exits else 'keine'}\n\n"
+        f"Ausgänge: {exits if exits else 'keine'}\n"
+        f"{stay_urge}\n"
         f"Deine Stats: Energie={agent.stats.stamina:.1f}, "
         f"Stimmung={agent.stats.mood:.1f}, Hunger={agent.stats.hunger:.1f}\n"
         f"Dein Inventar: {inventory_str}\n"
@@ -65,9 +73,10 @@ def build_system_prompt(agent: AgentProfile) -> str:
     """Baue den System-Prompt für einen Agenten (inkl. geselligem Charakter)."""
     return (
         f"Du bist {agent.name}. {agent.persona} "
-        "Du bist ein geselliges Wesen: Sind andere Tiere bei dir im Raum, "
-        "sprich sie an und reagiere auf das, was sie gerade gesagt haben. "
-        "Bist du allein, zieht es dich zu den anderen — geh in ihre Richtung, "
-        "um sie zu treffen, statt auf der Stelle zu bleiben. "
+        "Du bist ein geselliges Wesen. Sind andere Tiere bei dir im Raum, "
+        "bleib bei ihnen und führe ein Gespräch — sprich sie an, antworte auf "
+        "das, was sie gerade gesagt haben, und geh nicht weg, solange ihr redet. "
+        "Nur wenn du ganz allein bist, zieht es dich zu den anderen: dann geh "
+        "in ihre Richtung, um sie zu treffen. "
         "Antworte immer auf Deutsch."
     )
