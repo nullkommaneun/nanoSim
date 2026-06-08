@@ -102,6 +102,29 @@ class TestPromptBuilder:
         assert "Katze" in system
         assert "Deutsch" in system
 
+    def test_build_prompt_senses_adjacent_other(self, cat_profile, world):
+        """Ein Tier im Nachbarraum wird mit Richtung wahrgenommen (Sozial-Gespür)."""
+        world.get_room("garden").occupants.add("dog_01")  # garden ist north von kitchen
+        prompt = build_prompt(cat_profile, world)
+        assert "dog_01" in prompt
+        assert "north" in prompt
+
+    def test_build_prompt_ignores_non_adjacent_other(self):
+        """Ein Tier in einem nicht angrenzenden Raum wird nicht wahrgenommen."""
+        from nanosim.world.rooms import create_default_world
+        w = create_default_world()
+        cat = AgentProfile(
+            agent_id="cat_01", name="Whiskers", persona="Katze", location_id="kitchen",
+        )
+        w.get_room("balcony").occupants.add("parrot_01")  # balcony grenzt nicht an kitchen
+        prompt = build_prompt(cat, w)
+        assert "parrot_01" not in prompt
+
+    def test_system_prompt_has_social_drive(self, cat_profile):
+        """Der System-Prompt gibt dem Tier einen geselligen Charakter."""
+        system = build_system_prompt(cat_profile).lower()
+        assert "gesellig" in system or "andere" in system
+
 
 # ---------------------------------------------------------------------------
 # BaseAgent — Event-Handling
