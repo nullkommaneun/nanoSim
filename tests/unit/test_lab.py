@@ -95,6 +95,42 @@ class TestStats:
         assert all(e.tied_with_top for e in ranked)
 
 
+class TestRunnerLogic:
+    def test_vram_need_tier_is_max_not_sum(self):
+        from nanosim.lab.runner import model_vram_need
+
+        single = model_vram_need({"model": "llama3.1:8b", "dialogue": None})
+        tier = model_vram_need({"model": "llama3.2:3b", "dialogue": "llama3.1:8b"})
+        # Tier lädt mit MAX_LOADED_MODELS=1 nacheinander → Spitze = größeres Modell
+        assert tier == single
+
+    def test_configs_below_target_resume(self):
+        from nanosim.lab.runner import configs_below_target
+
+        configs = [{"name": "a"}, {"name": "b"}]
+        records = [_rec("a", 5) for _ in range(3)] + [_rec("a", 0, status="timeout")]
+        # a hat 3 OK-Läufe (Fehlschlag zählt nicht), b hat 0
+        below = configs_below_target(records, configs, target=3)
+        names = {c["name"] for c in below}
+        assert "b" in names
+        assert "a" not in names  # Ziel-n=3 erreicht (nur OK zählt)
+
+    def test_classify_status_dead_when_pid_gone(self):
+        from nanosim.lab.runner import classify_status
+
+        hb = {"pid": 999999999, "ts": 0, "round": 1, "runs_ok": 5}
+        assert classify_status(hb, now=10.0, run_timeout=1800).startswith("TOT")
+
+    def test_classify_status_green_when_fresh(self):
+        import os
+
+        from nanosim.lab.runner import classify_status
+
+        hb = {"pid": os.getpid(), "ts": 100.0, "round": 2, "runs_ok": 9, "budget_left": "8h0m"}
+        out = classify_status(hb, now=120.0, run_timeout=1800)
+        assert out.startswith("GRÜN")
+
+
 class TestReport:
     def test_render_contains_health_and_counts(self):
         records = [_rec("good", 20) for _ in range(4)] + [_rec("dead", 0) for _ in range(4)]
