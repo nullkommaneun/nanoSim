@@ -198,6 +198,82 @@ class TestPromptBuilder:
         assert "geh zu den anderen" not in prompt.lower()
         assert "Bleib hier" in prompt
 
+    # --- Gedächtnis-Fenster ---
+
+    def test_build_prompt_memory_window_limits(self, cat_profile, world):
+        """memory_window begrenzt, wie viele Erinnerungen im Prompt erscheinen."""
+        for m in ["E-eins", "E-zwei", "E-drei"]:
+            cat_profile.add_memory(m)
+        prompt = build_prompt(cat_profile, world, memory_window=1)
+        assert "E-drei" in prompt
+        assert "E-eins" not in prompt
+
+    def test_build_prompt_memory_window_zero_shows_none(self, cat_profile, world):
+        cat_profile.add_memory("E-eins")
+        prompt = build_prompt(cat_profile, world, memory_window=0)
+        assert "E-eins" not in prompt
+
+    # --- Prompt-Varianten ---
+
+    def test_prompt_variants_has_expected_keys(self):
+        from nanosim.agents.prompt import PROMPT_VARIANTS
+
+        assert {"baseline", "soft", "hard", "naming"} <= set(PROMPT_VARIANTS)
+
+    def test_system_prompt_variant_hard_demands_question(self, cat_profile):
+        system = build_system_prompt(cat_profile, variant="hard").lower()
+        assert "frage" in system
+
+    def test_system_prompt_variant_soft_is_neutral(self, cat_profile):
+        system = build_system_prompt(cat_profile, variant="soft").lower()
+        assert "nicht weg" not in system
+
+    def test_build_prompt_variant_threads_stay_text(self, cat_profile, world):
+        world.get_room("kitchen").occupants.add("cat_01")
+        world.get_room("kitchen").occupants.add("dog_01")
+        prompt = build_prompt(cat_profile, world, variant="hard")
+        assert "BLEIB HIER" in prompt
+
+    def test_default_variant_is_baseline_behaviour(self, cat_profile, world):
+        """Ohne Variante bleibt alles wie bisher (verhaltensgleich)."""
+        world.get_room("kitchen").occupants.add("cat_01")
+        world.get_room("kitchen").occupants.add("dog_01")
+        assert "Bleib hier" in build_prompt(cat_profile, world)
+        assert "bleib bei ihnen" in build_system_prompt(cat_profile).lower()
+
+
+class TestAgentConfig:
+    def test_agent_stores_prompt_variant_and_memory_window(self, cat_profile, router):
+        agent = BaseAgent(
+            profile=cat_profile, router=router,
+            prompt_variant="hard", memory_window=5,
+        )
+        assert agent.prompt_variant == "hard"
+        assert agent.memory_window == 5
+
+    def test_agent_defaults_are_baseline(self, cat_profile, router):
+        agent = BaseAgent(profile=cat_profile, router=router)
+        assert agent.prompt_variant == "baseline"
+        assert agent.memory_window == 3
+
+    @pytest.mark.asyncio
+    async def test_agent_threads_memory_window_into_prompt(self, cat_profile, router, world):
+        from nanosim.models import ActionType, AgentAction
+
+        for m in ["alpha", "beta", "gamma"]:
+            cat_profile.add_memory(m)
+        agent = BaseAgent(profile=cat_profile, router=router, memory_window=1)
+        captured = {}
+
+        async def fake_think(prompt, response_model, system=None):
+            captured["prompt"] = prompt
+            return AgentAction(action=ActionType.IDLE)
+
+        agent.router.think = fake_think
+        await agent.tick(world, tick=0)
+        assert "gamma" in captured["prompt"]
+        assert "alpha" not in captured["prompt"]
+
 
 # ---------------------------------------------------------------------------
 # BaseAgent — Event-Handling

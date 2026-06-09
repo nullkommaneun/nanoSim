@@ -30,9 +30,17 @@ class BaseAgent:
     und entscheidet via LLM welche Action er ausführt.
     """
 
-    def __init__(self, profile: AgentProfile, router: LlamaRouter) -> None:
+    def __init__(
+        self,
+        profile: AgentProfile,
+        router: LlamaRouter,
+        prompt_variant: str = "baseline",
+        memory_window: int = 3,
+    ) -> None:
         self.profile = profile
         self.router = router
+        self.prompt_variant = prompt_variant
+        self.memory_window = memory_window
         self.inbox: list[BaseEvent] = []
         # Tiefe der zuletzt gehörten Äußerung (für Causality-Kappung).
         # None = in diesem Tick nichts gehört → frische Kette (Tiefe 0).
@@ -86,8 +94,13 @@ class BaseAgent:
 
     async def tick(self, world: WorldRegistry, tick: int) -> BaseEvent | None:
         """Einen kompletten Agent-Tick ausführen: denken → handeln → Event."""
-        prompt = build_prompt(self.profile, world)
-        system = build_system_prompt(self.profile)
+        prompt = build_prompt(
+            self.profile,
+            world,
+            memory_window=self.memory_window,
+            variant=self.prompt_variant,
+        )
+        system = build_system_prompt(self.profile, variant=self.prompt_variant)
 
         logger.debug("[%s] Denkt nach...", self.profile.name)
 

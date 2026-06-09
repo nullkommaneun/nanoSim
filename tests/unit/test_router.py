@@ -77,6 +77,18 @@ class TestCliPersistenceArgs:
         assert args.dialogue_model == "llama3.1:8b"
         assert build_parser().parse_args([]).dialogue_model is None
 
+    def test_prompt_variant_and_memory_window_args(self):
+        from nanosim.main import build_parser
+
+        args = build_parser().parse_args(
+            ["--prompt-variant", "hard", "--memory-window", "6"]
+        )
+        assert args.prompt_variant == "hard"
+        assert args.memory_window == 6
+        defaults = build_parser().parse_args([])
+        assert defaults.prompt_variant == "baseline"
+        assert defaults.memory_window == 3
+
 
 class TestBuildRouter:
     def test_single_model_returns_llama_router(self):

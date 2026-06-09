@@ -84,6 +84,8 @@ async def run_terrarium(
     load_path: str | None = None,
     save_path: str | None = None,
     trace_path: str | None = None,
+    prompt_variant: str = "baseline",
+    memory_window: int = 3,
 ) -> None:
     """Starte eine NanoSim-Pet Simulation.
 
@@ -114,7 +116,12 @@ async def run_terrarium(
 
     agents: list[BaseAgent] = []
     for profile in profiles:
-        agent = BaseAgent(profile=profile, router=router)
+        agent = BaseAgent(
+            profile=profile,
+            router=router,
+            prompt_variant=prompt_variant,
+            memory_window=memory_window,
+        )
         agents.append(agent)
         console.print(
             f"  🐾 [bold]{profile.name}[/bold] ({profile.agent_id}) "
@@ -191,6 +198,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optionales großes Modell nur für die Rede (Zwei-Stufen-Modus)",
     )
+    parser.add_argument(
+        "--prompt-variant",
+        default="baseline",
+        help="Sozial-Trieb-Variante (baseline, soft, hard, naming)",
+    )
+    parser.add_argument(
+        "--memory-window",
+        type=int,
+        default=3,
+        help="Wie viele Erinnerungen im Prompt sichtbar sind",
+    )
     parser.add_argument("--ticks", type=int, default=5, help="Anzahl Ticks")
     parser.add_argument("--url", default="http://localhost:11434", help="Ollama URL")
     parser.add_argument(
@@ -241,6 +259,8 @@ def main() -> None:
             num_ticks=args.ticks,
             base_url=args.url,
             dialogue_model=args.dialogue_model,
+            prompt_variant=args.prompt_variant,
+            memory_window=args.memory_window,
             load_path=args.load,
             save_path=args.save,
             trace_path=args.trace,
