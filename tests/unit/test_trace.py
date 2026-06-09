@@ -17,7 +17,9 @@ def _sample_tick(tick: int) -> TickRecord:
         tick=tick,
         agents=[
             AgentSnapshot(
-                agent_id="cat_01", name="Whiskers", location_id="kitchen",
+                agent_id="cat_01",
+                name="Whiskers",
+                location_id="kitchen",
                 stats=AgentStats(stamina=0.8, mood=0.7, hunger=0.3),
             ),
         ],
@@ -26,9 +28,13 @@ def _sample_tick(tick: int) -> TickRecord:
         ],
         events=[
             BaseEvent(
-                id="evt1", type=EventType.AGENT_SPEAK, source="cat_01",
-                location_id="kitchen", payload={"message": "Miau!"},
-                causality_depth=2, caused_by="evt0",
+                id="evt1",
+                type=EventType.AGENT_SPEAK,
+                source="cat_01",
+                location_id="kitchen",
+                payload={"message": "Miau!"},
+                causality_depth=2,
+                caused_by="evt0",
             ),
         ],
     )
@@ -53,7 +59,9 @@ class TestTraceWriter:
         writer.record_tick(_sample_tick(0))
         writer.close()
 
-        lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        lines = [
+            ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()
+        ]
         assert len(lines) == 2  # 1 Meta-Zeile + 1 Tick-Zeile
         for ln in lines:
             json.loads(ln)  # jede Zeile ist valides JSON

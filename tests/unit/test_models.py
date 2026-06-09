@@ -18,6 +18,7 @@ from nanosim.models import (
 # BaseEvent
 # ---------------------------------------------------------------------------
 
+
 class TestBaseEvent:
     def test_create_minimal(self):
         e = BaseEvent(type=EventType.TICK, source="system")
@@ -48,6 +49,7 @@ class TestBaseEvent:
 # AgentStats
 # ---------------------------------------------------------------------------
 
+
 class TestAgentStats:
     def test_defaults(self):
         stats = AgentStats()
@@ -72,6 +74,7 @@ class TestAgentStats:
 # AgentAction
 # ---------------------------------------------------------------------------
 
+
 class TestAgentAction:
     def test_speak(self):
         a = AgentAction(action=ActionType.SPEAK, message="Hallo!")
@@ -92,6 +95,7 @@ class TestAgentAction:
 # AgentProfile
 # ---------------------------------------------------------------------------
 
+
 class TestAgentProfile:
     def test_create(self):
         agent = AgentProfile(
@@ -107,8 +111,10 @@ class TestAgentProfile:
 
     def test_add_memory_basic(self):
         agent = AgentProfile(
-            agent_id="cat_01", name="Whiskers",
-            persona="Katze", location_id="kitchen",
+            agent_id="cat_01",
+            name="Whiskers",
+            persona="Katze",
+            location_id="kitchen",
         )
         agent.add_memory("Tick 1: Habe Milch getrunken")
         assert len(agent.memory) == 1
@@ -116,8 +122,10 @@ class TestAgentProfile:
 
     def test_add_memory_fifo(self):
         agent = AgentProfile(
-            agent_id="cat_01", name="Whiskers",
-            persona="Katze", location_id="kitchen",
+            agent_id="cat_01",
+            name="Whiskers",
+            persona="Katze",
+            location_id="kitchen",
         )
         for i in range(15):
             agent.add_memory(f"Tick {i}: Event {i}")
@@ -132,9 +140,12 @@ class TestAgentProfile:
 # Room
 # ---------------------------------------------------------------------------
 
+
 class TestRoom:
     def test_create(self):
-        room = Room(room_id="kitchen", name="Küche", description="Eine gemütliche Küche")
+        room = Room(
+            room_id="kitchen", name="Küche", description="Eine gemütliche Küche"
+        )
         assert room.room_id == "kitchen"
         assert room.occupants == set()
         assert room.objects == []

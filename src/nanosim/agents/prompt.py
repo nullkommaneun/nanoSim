@@ -9,7 +9,8 @@ from nanosim.models import AgentProfile
 
 
 def _first_step_directions(
-    world: WorldRegistry, start_id: str,
+    world: WorldRegistry,
+    start_id: str,
 ) -> dict[str, tuple[int, str | None]]:
     """Breitensuche über die Räume: für jeden erreichbaren Raum die Entfernung
     (in Räumen) und die Richtung des ersten Schritts dorthin.
@@ -42,7 +43,9 @@ def _sensed_others(agent: AgentProfile, world: WorldRegistry) -> list[str]:
         dist, direction = dirs[room.room_id]
         for other in sorted(o for o in room.occupants if o != agent.agent_id):
             if dist == 1:
-                lines.append(f"{other} ist nebenan in {room.name} (Richtung {direction})")
+                lines.append(
+                    f"{other} ist nebenan in {room.name} (Richtung {direction})"
+                )
             else:
                 lines.append(
                     f"{other} ist in {room.name}, {dist} Räume entfernt "
@@ -60,8 +63,7 @@ def build_prompt(agent: AgentProfile, world: WorldRegistry) -> str:
     room = world.get_room(agent.location_id)
     others = sorted(a for a in room.occupants if a != agent.agent_id)
     exits = ", ".join(
-        f"{direction} → {room_id}"
-        for direction, room_id in room.exits.items()
+        f"{direction} → {room_id}" for direction, room_id in room.exits.items()
     )
 
     memory_str = "; ".join(agent.memory[-3:]) if agent.memory else "keine"
@@ -75,13 +77,9 @@ def build_prompt(agent: AgentProfile, world: WorldRegistry) -> str:
     # - jemand IST da  → bleiben und reden (sonst brechen Gespräche ab)
     # - allein, aber jemand erreichbar → dem Kompass folgen (auch über mehrere Räume)
     if others:
-        stay_urge = (
-            "\n>> Bleib hier und sprich mit den anderen im Raum — geh jetzt NICHT weg!\n"
-        )
+        stay_urge = "\n>> Bleib hier und sprich mit den anderen im Raum — geh jetzt NICHT weg!\n"
     elif sensed:
-        stay_urge = (
-            f"\n>> Du bist allein — geh zu den anderen Tieren! Folge dem Kompass: {sensed_str}\n"
-        )
+        stay_urge = f"\n>> Du bist allein — geh zu den anderen Tieren! Folge dem Kompass: {sensed_str}\n"
     else:
         stay_urge = ""
 

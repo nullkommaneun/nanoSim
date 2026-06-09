@@ -13,7 +13,9 @@ from nanosim.trace import (
 
 def _snap(hunger=0.3):
     return AgentSnapshot(
-        agent_id="cat_01", name="Whiskers", location_id="kitchen",
+        agent_id="cat_01",
+        name="Whiskers",
+        location_id="kitchen",
         stats=AgentStats(stamina=0.8, mood=0.7, hunger=hunger),
     )
 
@@ -21,7 +23,8 @@ def _snap(hunger=0.3):
 class TestFormatEvent:
     def test_speak(self):
         ev = BaseEvent(
-            type=EventType.AGENT_SPEAK, source="cat_01",
+            type=EventType.AGENT_SPEAK,
+            source="cat_01",
             payload={"message": "Miau!"},
         )
         s = format_event(ev)
@@ -30,7 +33,8 @@ class TestFormatEvent:
 
     def test_move(self):
         ev = BaseEvent(
-            type=EventType.AGENT_MOVE, source="dog_01",
+            type=EventType.AGENT_MOVE,
+            source="dog_01",
             payload={"from": "garden", "to": "kitchen"},
         )
         s = format_event(ev)
@@ -39,7 +43,8 @@ class TestFormatEvent:
 
     def test_use(self):
         ev = BaseEvent(
-            type=EventType.AGENT_USE, source="cat_01",
+            type=EventType.AGENT_USE,
+            source="cat_01",
             payload={"object": "futternapf"},
         )
         s = format_event(ev)
@@ -59,12 +64,18 @@ class TestSummarizeTick:
 
     def test_renders_speak_event(self):
         ev = BaseEvent(
-            type=EventType.AGENT_SPEAK, source="cat_01",
+            type=EventType.AGENT_SPEAK,
+            source="cat_01",
             payload={"message": "Hallo Welt"},
         )
         tick = TickRecord(
-            tick=0, agents=[_snap()],
-            decisions=[Decision(agent_id="cat_01", action=ActionType.SPEAK, message="Hallo Welt")],
+            tick=0,
+            agents=[_snap()],
+            decisions=[
+                Decision(
+                    agent_id="cat_01", action=ActionType.SPEAK, message="Hallo Welt"
+                )
+            ],
             events=[ev],
         )
         lines = summarize_tick(tick)
@@ -85,7 +96,9 @@ class TestCliReplayBranch:
 
         called = {}
         monkeypatch.setattr(m, "play_trace", lambda p: called.__setitem__("play", p))
-        monkeypatch.setattr(m.asyncio, "run", lambda coro: called.__setitem__("ran", True))
+        monkeypatch.setattr(
+            m.asyncio, "run", lambda coro: called.__setitem__("ran", True)
+        )
         monkeypatch.setattr(sys, "argv", ["nanosim", "--replay", "x.jsonl"])
 
         m.main()
@@ -100,10 +113,16 @@ class TestCliReplayBranch:
         import nanosim.main as m
 
         called = {}
-        monkeypatch.setattr(m, "write_report", lambda src, out: called.__setitem__("report", (src, out)))
+        monkeypatch.setattr(
+            m, "write_report", lambda src, out: called.__setitem__("report", (src, out))
+        )
         monkeypatch.setattr(m, "play_trace", lambda p: called.__setitem__("play", p))
-        monkeypatch.setattr(m.asyncio, "run", lambda coro: called.__setitem__("ran", True))
-        monkeypatch.setattr(sys, "argv", ["nanosim", "--replay", "x.jsonl", "--report", "out.html"])
+        monkeypatch.setattr(
+            m.asyncio, "run", lambda coro: called.__setitem__("ran", True)
+        )
+        monkeypatch.setattr(
+            sys, "argv", ["nanosim", "--replay", "x.jsonl", "--report", "out.html"]
+        )
 
         m.main()
 

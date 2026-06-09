@@ -16,6 +16,7 @@ from nanosim.models import AgentProfile, AgentStats, Room
 # decay_stats
 # ---------------------------------------------------------------------------
 
+
 class TestDecayStats:
     def test_hunger_increases(self):
         stats = AgentStats(hunger=0.5)
@@ -52,6 +53,7 @@ class TestDecayStats:
 # TickEngine
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def world():
     w = WorldRegistry()
@@ -66,8 +68,12 @@ def engine(world):
     bus = EventBus()
 
     profiles = [
-        AgentProfile(agent_id="cat_01", name="Whiskers", persona="Katze", location_id="kitchen"),
-        AgentProfile(agent_id="dog_01", name="Bello", persona="Hund", location_id="garden"),
+        AgentProfile(
+            agent_id="cat_01", name="Whiskers", persona="Katze", location_id="kitchen"
+        ),
+        AgentProfile(
+            agent_id="dog_01", name="Bello", persona="Hund", location_id="garden"
+        ),
     ]
     agents = []
     for p in profiles:
@@ -88,6 +94,7 @@ class TestTickEngine:
     async def test_single_tick(self, engine):
         """Ein Tick läuft durch ohne Crash."""
         from nanosim.models import AgentAction, ActionType
+
         idle = AgentAction(action=ActionType.IDLE)
         for agent in engine.agents:
             agent.router.think = AsyncMock(return_value=idle)
@@ -98,6 +105,7 @@ class TestTickEngine:
     async def test_multiple_ticks(self, engine):
         """Mehrere Ticks laufen durch."""
         from nanosim.models import AgentAction, ActionType
+
         idle = AgentAction(action=ActionType.IDLE)
         for agent in engine.agents:
             agent.router.think = AsyncMock(return_value=idle)
@@ -108,6 +116,7 @@ class TestTickEngine:
     async def test_stats_decay_applied(self, engine):
         """Stats müssen nach einem Tick verändert sein."""
         from nanosim.models import AgentAction, ActionType
+
         original_hunger = engine.agents[0].profile.stats.hunger
         idle = AgentAction(action=ActionType.IDLE)
         for agent in engine.agents:
@@ -126,6 +135,7 @@ class TestTickEngine:
 
         async def mock_think(prompt, response_model, system=None):
             from nanosim.models import AgentAction, ActionType
+
             call_count[0] += 1
             if call_count[0] == 1:
                 return AgentAction(action=ActionType.SPEAK, message="Miau!")
@@ -152,7 +162,8 @@ class TestTickEngineRecording:
             agent.router.think = AsyncMock(return_value=idle)
 
         writer = TraceWriter(
-            tmp_path / "run.jsonl", model="m",
+            tmp_path / "run.jsonl",
+            model="m",
             agent_ids=[a.agent_id for a in engine.agents],
         )
         engine.recorder = writer
@@ -176,13 +187,15 @@ class TestTickEngineRecording:
                 return AgentAction(action=ActionType.SPEAK, message="Miau!")
             mock_think.calls += 1
             return AgentAction(action=ActionType.IDLE)
+
         mock_think.calls = 0
 
         for agent in engine.agents:
             agent.router.think = mock_think
 
         writer = TraceWriter(
-            tmp_path / "run.jsonl", model="m",
+            tmp_path / "run.jsonl",
+            model="m",
             agent_ids=[a.agent_id for a in engine.agents],
         )
         engine.recorder = writer
@@ -191,5 +204,7 @@ class TestTickEngineRecording:
 
         trace = load_trace(tmp_path / "run.jsonl")
         decisions = trace.ticks[0].decisions
-        assert any(d.action == ActionType.SPEAK and d.message == "Miau!" for d in decisions)
+        assert any(
+            d.action == ActionType.SPEAK and d.message == "Miau!" for d in decisions
+        )
         assert any(e.type.value == "agent_speak" for e in trace.ticks[0].events)

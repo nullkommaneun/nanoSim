@@ -20,25 +20,32 @@ from nanosim.models import (
 @pytest.fixture
 def world():
     w = WorldRegistry()
-    w.add_room(Room(
-        room_id="kitchen", name="Küche",
-        description="Eine warme Küche.",
-        objects=["futternapf"],
-        exits={"north": "garden"},
-    ))
-    w.add_room(Room(
-        room_id="garden", name="Garten",
-        description="Ein sonniger Garten.",
-        objects=["gras"],
-        exits={"south": "kitchen"},
-    ))
+    w.add_room(
+        Room(
+            room_id="kitchen",
+            name="Küche",
+            description="Eine warme Küche.",
+            objects=["futternapf"],
+            exits={"north": "garden"},
+        )
+    )
+    w.add_room(
+        Room(
+            room_id="garden",
+            name="Garten",
+            description="Ein sonniger Garten.",
+            objects=["gras"],
+            exits={"south": "kitchen"},
+        )
+    )
     return w
 
 
 @pytest.fixture
 def cat_profile():
     return AgentProfile(
-        agent_id="cat_01", name="Whiskers",
+        agent_id="cat_01",
+        name="Whiskers",
         persona="Neugierige Katze.",
         location_id="kitchen",
         stats=AgentStats(stamina=0.8, mood=0.9, hunger=0.3),
@@ -58,6 +65,7 @@ def agent(cat_profile, router):
 # ---------------------------------------------------------------------------
 # Prompt-Builder
 # ---------------------------------------------------------------------------
+
 
 class TestPromptBuilder:
     def test_build_prompt_contains_location(self, cat_profile, world):
@@ -110,9 +118,13 @@ class TestPromptBuilder:
     def test_build_prompt_senses_distant_other_with_distance(self):
         """Ein erreichbares Tier mehrere Räume entfernt wird mit Entfernung wahrgenommen."""
         from nanosim.world.rooms import create_default_world
+
         w = create_default_world()
         cat = AgentProfile(
-            agent_id="cat_01", name="Whiskers", persona="Katze", location_id="kitchen",
+            agent_id="cat_01",
+            name="Whiskers",
+            persona="Katze",
+            location_id="kitchen",
         )
         w.get_room("balcony").occupants.add("parrot_01")  # balcony ist 2 Räume entfernt
         prompt = build_prompt(cat, w)
@@ -123,6 +135,7 @@ class TestPromptBuilder:
         """Breitensuche liefert Entfernung + Richtung des ersten Schritts."""
         from nanosim.agents.prompt import _first_step_directions
         from nanosim.world.rooms import create_default_world
+
         w = create_default_world()
         d = _first_step_directions(w, "kitchen")
         assert d["garden"] == (1, "north")
@@ -135,10 +148,13 @@ class TestPromptBuilder:
         """Ein Tier in einem nicht erreichbaren (isolierten) Raum wird nicht wahrgenommen."""
         from nanosim.core.world import WorldRegistry
         from nanosim.models import Room
+
         w = WorldRegistry()
         w.add_room(Room(room_id="a", name="A", exits={}))
         w.add_room(Room(room_id="b", name="B", exits={}))  # keine Verbindung
-        cat = AgentProfile(agent_id="cat_01", name="W", persona="Katze", location_id="a")
+        cat = AgentProfile(
+            agent_id="cat_01", name="W", persona="Katze", location_id="a"
+        )
         w.get_room("b").occupants.add("dog_01")
         prompt = build_prompt(cat, w)
         assert "dog_01" not in prompt
@@ -165,7 +181,9 @@ class TestPromptBuilder:
         prompt = build_prompt(cat_profile, world)
         assert "Bleib hier" not in prompt
 
-    def test_build_prompt_urges_moving_when_alone_with_neighbor(self, cat_profile, world):
+    def test_build_prompt_urges_moving_when_alone_with_neighbor(
+        self, cat_profile, world
+    ):
         """Allein, aber jemand erreichbar → klarer Aufruf, hinzugehen (mit Richtung)."""
         world.get_room("garden").occupants.add("dog_01")  # garden = north von kitchen
         prompt = build_prompt(cat_profile, world)
@@ -185,11 +203,13 @@ class TestPromptBuilder:
 # BaseAgent — Event-Handling
 # ---------------------------------------------------------------------------
 
+
 class TestAgentInbox:
     @pytest.mark.asyncio
     async def test_receive_event(self, agent):
         event = BaseEvent(
-            type=EventType.AGENT_SPEAK, source="dog_01",
+            type=EventType.AGENT_SPEAK,
+            source="dog_01",
             payload={"message": "Wuff!"},
         )
         await agent.receive_event(event)
@@ -197,7 +217,8 @@ class TestAgentInbox:
 
     def test_process_inbox_speak(self, agent):
         event = BaseEvent(
-            type=EventType.AGENT_SPEAK, source="dog_01",
+            type=EventType.AGENT_SPEAK,
+            source="dog_01",
             payload={"message": "Wuff!"},
         )
         agent.inbox.append(event)
@@ -209,7 +230,8 @@ class TestAgentInbox:
 
     def test_process_inbox_move(self, agent):
         event = BaseEvent(
-            type=EventType.AGENT_MOVE, source="dog_01",
+            type=EventType.AGENT_MOVE,
+            source="dog_01",
             payload={"from": "garden", "to": "kitchen"},
         )
         agent.inbox.append(event)
@@ -218,7 +240,8 @@ class TestAgentInbox:
 
     def test_process_inbox_use(self, agent):
         event = BaseEvent(
-            type=EventType.AGENT_USE, source="dog_01",
+            type=EventType.AGENT_USE,
+            source="dog_01",
             payload={"object": "ball"},
         )
         agent.inbox.append(event)
@@ -227,7 +250,8 @@ class TestAgentInbox:
 
     def test_process_inbox_rest(self, agent):
         event = BaseEvent(
-            type=EventType.AGENT_REST, source="dog_01",
+            type=EventType.AGENT_REST,
+            source="dog_01",
         )
         agent.inbox.append(event)
         agent.process_inbox(tick=2)
@@ -238,12 +262,15 @@ class TestAgentInbox:
 # BaseAgent — Action Execution
 # ---------------------------------------------------------------------------
 
+
 class TestAgentExecution:
     @pytest.mark.asyncio
     async def test_tick_speak(self, agent, world):
         world.get_room("kitchen").occupants.add("cat_01")
         mock_resp = {"message": {"content": '{"action": "speak", "message": "Miau!"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is not None
         assert event.type == EventType.AGENT_SPEAK
@@ -254,7 +281,9 @@ class TestAgentExecution:
     async def test_tick_move(self, agent, world):
         world.get_room("kitchen").occupants.add("cat_01")
         mock_resp = {"message": {"content": '{"action": "move", "target": "north"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is not None
         assert event.type == EventType.AGENT_MOVE
@@ -266,7 +295,9 @@ class TestAgentExecution:
     async def test_tick_move_invalid_exit(self, agent, world):
         world.get_room("kitchen").occupants.add("cat_01")
         mock_resp = {"message": {"content": '{"action": "move", "target": "west"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is None
         assert agent.profile.location_id == "kitchen"  # Nicht bewegt
@@ -274,8 +305,12 @@ class TestAgentExecution:
     @pytest.mark.asyncio
     async def test_tick_use(self, agent, world):
         world.get_room("kitchen").occupants.add("cat_01")
-        mock_resp = {"message": {"content": '{"action": "use", "target": "futternapf"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        mock_resp = {
+            "message": {"content": '{"action": "use", "target": "futternapf"}'}
+        }
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is not None
         assert event.type == EventType.AGENT_USE
@@ -286,8 +321,12 @@ class TestAgentExecution:
         """Ein vorhandenes Objekt benutzen verändert die Stats (futternapf → Hunger runter)."""
         world.get_room("kitchen").occupants.add("cat_01")
         agent.profile.stats = AgentStats(stamina=0.8, mood=0.8, hunger=0.9)
-        mock_resp = {"message": {"content": '{"action": "use", "target": "futternapf"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        mock_resp = {
+            "message": {"content": '{"action": "use", "target": "futternapf"}'}
+        }
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is not None
         assert event.type == EventType.AGENT_USE
@@ -298,8 +337,12 @@ class TestAgentExecution:
         """Ein Objekt benutzen, das nicht im Raum ist → kein Event, keine Wirkung."""
         world.get_room("kitchen").occupants.add("cat_01")
         before = agent.profile.stats.model_copy()
-        mock_resp = {"message": {"content": '{"action": "use", "target": "sofa"}'}}  # sofa nicht in kitchen
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        mock_resp = {
+            "message": {"content": '{"action": "use", "target": "sofa"}'}
+        }  # sofa nicht in kitchen
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is None
         assert agent.profile.stats == before  # Stats unverändert
@@ -308,7 +351,9 @@ class TestAgentExecution:
     async def test_tick_rest(self, agent, world):
         old_stamina = agent.profile.stats.stamina
         mock_resp = {"message": {"content": '{"action": "rest"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is not None
         assert event.type == EventType.AGENT_REST
@@ -317,7 +362,9 @@ class TestAgentExecution:
     @pytest.mark.asyncio
     async def test_tick_idle(self, agent, world):
         mock_resp = {"message": {"content": '{"action": "idle"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is None
 
@@ -325,7 +372,9 @@ class TestAgentExecution:
     async def test_tick_llm_failure_fallback_idle(self, agent, world):
         """Wenn LLM komplett versagt → idle, kein Crash."""
         mock_resp = {"message": {"content": "Ich bin kaputt"}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is None  # idle → kein Event
 
@@ -334,6 +383,7 @@ class TestAgentExecution:
 # BaseAgent — Causality-Depth (Schutz vor Endlos-Event-Ketten)
 # ---------------------------------------------------------------------------
 
+
 class TestCausalityDepth:
     @pytest.mark.asyncio
     async def test_spontaneous_speak_has_depth_zero(self, agent, world):
@@ -341,7 +391,9 @@ class TestCausalityDepth:
         world.get_room("kitchen").occupants.add("cat_01")
         agent.process_inbox(tick=0)  # leere Inbox → nichts gehört
         mock_resp = {"message": {"content": '{"action": "speak", "message": "Hallo?"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is not None
         assert event.causality_depth == 0
@@ -350,13 +402,19 @@ class TestCausalityDepth:
     async def test_reactive_speak_increments_depth(self, agent, world):
         """Antwort auf eine gehörte Äußerung bei Tiefe d → eigene Äußerung Tiefe d+1."""
         world.get_room("kitchen").occupants.add("cat_01")
-        agent.inbox.append(BaseEvent(
-            type=EventType.AGENT_SPEAK, source="dog_01",
-            payload={"message": "Wuff!"}, causality_depth=2,
-        ))
+        agent.inbox.append(
+            BaseEvent(
+                type=EventType.AGENT_SPEAK,
+                source="dog_01",
+                payload={"message": "Wuff!"},
+                causality_depth=2,
+            )
+        )
         agent.process_inbox(tick=1)
         mock_resp = {"message": {"content": '{"action": "speak", "message": "Miau!"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=1)
         assert event is not None
         assert event.causality_depth == 3
@@ -367,13 +425,19 @@ class TestCausalityDepth:
         from nanosim.models import MAX_CAUSALITY_DEPTH
 
         world.get_room("kitchen").occupants.add("cat_01")
-        agent.inbox.append(BaseEvent(
-            type=EventType.AGENT_SPEAK, source="dog_01",
-            payload={"message": "Echo"}, causality_depth=MAX_CAUSALITY_DEPTH,
-        ))
+        agent.inbox.append(
+            BaseEvent(
+                type=EventType.AGENT_SPEAK,
+                source="dog_01",
+                payload={"message": "Echo"},
+                causality_depth=MAX_CAUSALITY_DEPTH,
+            )
+        )
         agent.process_inbox(tick=2)
         mock_resp = {"message": {"content": '{"action": "speak", "message": "Echo"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=2)
         assert event is None  # unterdrückt → kein weiteres Echo
 
@@ -381,13 +445,20 @@ class TestCausalityDepth:
     async def test_reactive_speak_records_caused_by(self, agent, world):
         """Antwort auf eine gehörte Äußerung trägt deren id als caused_by."""
         world.get_room("kitchen").occupants.add("cat_01")
-        agent.inbox.append(BaseEvent(
-            id="evt_dog_hello", type=EventType.AGENT_SPEAK, source="dog_01",
-            payload={"message": "Wuff!"}, causality_depth=1,
-        ))
+        agent.inbox.append(
+            BaseEvent(
+                id="evt_dog_hello",
+                type=EventType.AGENT_SPEAK,
+                source="dog_01",
+                payload={"message": "Wuff!"},
+                causality_depth=1,
+            )
+        )
         agent.process_inbox(tick=1)
         mock_resp = {"message": {"content": '{"action": "speak", "message": "Miau!"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=1)
         assert event is not None
         assert event.caused_by == "evt_dog_hello"
@@ -398,7 +469,9 @@ class TestCausalityDepth:
         world.get_room("kitchen").occupants.add("cat_01")
         agent.process_inbox(tick=0)
         mock_resp = {"message": {"content": '{"action": "speak", "message": "Hallo?"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=0)
         assert event is not None
         assert event.caused_by is None
@@ -409,13 +482,19 @@ class TestCausalityDepth:
         from nanosim.models import MAX_CAUSALITY_DEPTH
 
         world.get_room("kitchen").occupants.add("cat_01")
-        agent.inbox.append(BaseEvent(
-            type=EventType.AGENT_SPEAK, source="dog_01",
-            payload={"message": "Echo"}, causality_depth=MAX_CAUSALITY_DEPTH,
-        ))
+        agent.inbox.append(
+            BaseEvent(
+                type=EventType.AGENT_SPEAK,
+                source="dog_01",
+                payload={"message": "Echo"},
+                causality_depth=MAX_CAUSALITY_DEPTH,
+            )
+        )
         agent.process_inbox(tick=3)
         mock_resp = {"message": {"content": '{"action": "move", "target": "north"}'}}
-        with patch.object(agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp):
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
             event = await agent.tick(world, tick=3)
         assert event is not None
         assert event.type == EventType.AGENT_MOVE

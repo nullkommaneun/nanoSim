@@ -31,13 +31,17 @@ console = Console()
 
 
 def _build_router(
-    model: str, dialogue_model: str | None, base_url: str,
+    model: str,
+    dialogue_model: str | None,
+    base_url: str,
 ) -> LlamaRouter | TwoTierRouter:
     """Den passenden Router bauen: Zwei-Stufen-Modus bei gesetztem dialogue_model,
     sonst der klassische Einzel-Modell-Router."""
     if dialogue_model:
         return TwoTierRouter(
-            decision_model=model, dialogue_model=dialogue_model, base_url=base_url,
+            decision_model=model,
+            dialogue_model=dialogue_model,
+            base_url=base_url,
         )
     return LlamaRouter(model=model, base_url=base_url)
 
@@ -103,7 +107,9 @@ async def run_terrarium(
     world, profiles, start_tick = _build_world_and_profiles(load_path)
     router = _build_router(model, dialogue_model, base_url)
     if dialogue_model:
-        console.print(f"Dialog-Modell: [cyan]{dialogue_model}[/cyan] (Zwei-Stufen-Modus)")
+        console.print(
+            f"Dialog-Modell: [cyan]{dialogue_model}[/cyan] (Zwei-Stufen-Modus)"
+        )
     bus = EventBus()
 
     agents: list[BaseAgent] = []
@@ -129,7 +135,9 @@ async def run_terrarium(
     recorder = None
     if trace_path:
         recorder = TraceWriter(
-            trace_path, model=router.model, agent_ids=[a.agent_id for a in agents],
+            trace_path,
+            model=router.model,
+            agent_ids=[a.agent_id for a in agents],
         )
 
     # Simulation starten (Tick-Zähler aus dem Snapshot fortsetzen)
@@ -150,7 +158,10 @@ async def run_terrarium(
     # Endzustand optional speichern
     if save_path:
         save_snapshot(
-            save_path, world=world, profiles=profiles, tick_count=engine.tick_count,
+            save_path,
+            world=world,
+            profiles=profiles,
+            tick_count=engine.tick_count,
         )
         console.print(f"\n[green]Zustand gespeichert:[/green] {save_path}")
 
@@ -170,31 +181,41 @@ async def run_terrarium(
 def build_parser() -> argparse.ArgumentParser:
     """Baue den CLI-Argument-Parser. Ausgelagert für Testbarkeit."""
     parser = argparse.ArgumentParser(description="NanoSim-Pet Terrarium")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="Ollama-Modellname (Einzel- bzw. Entscheidungs-Modell)")
     parser.add_argument(
-        "--dialogue-model", default=None,
+        "--model",
+        default=DEFAULT_MODEL,
+        help="Ollama-Modellname (Einzel- bzw. Entscheidungs-Modell)",
+    )
+    parser.add_argument(
+        "--dialogue-model",
+        default=None,
         help="Optionales großes Modell nur für die Rede (Zwei-Stufen-Modus)",
     )
     parser.add_argument("--ticks", type=int, default=5, help="Anzahl Ticks")
     parser.add_argument("--url", default="http://localhost:11434", help="Ollama URL")
     parser.add_argument(
-        "--load", default=None,
+        "--load",
+        default=None,
         help="Snapshot-Datei laden und Simulation fortsetzen",
     )
     parser.add_argument(
-        "--save", default=None,
+        "--save",
+        default=None,
         help="Weltzustand nach der Simulation in diese Datei speichern",
     )
     parser.add_argument(
-        "--trace", default=None,
+        "--trace",
+        default=None,
         help="Lauf als JSONL-Trace mitschneiden (für Report/Replay)",
     )
     parser.add_argument(
-        "--replay", default=None,
+        "--replay",
+        default=None,
         help="Aufgezeichneten Trace abspielen (ohne LLM) statt zu simulieren",
     )
     parser.add_argument(
-        "--report", default=None,
+        "--report",
+        default=None,
         help="Aus dem --replay-Trace einen HTML-Report in diese Datei schreiben",
     )
     return parser
@@ -214,15 +235,17 @@ def main() -> None:
             play_trace(args.replay)
         return
 
-    asyncio.run(run_terrarium(
-        model=args.model,
-        num_ticks=args.ticks,
-        base_url=args.url,
-        dialogue_model=args.dialogue_model,
-        load_path=args.load,
-        save_path=args.save,
-        trace_path=args.trace,
-    ))
+    asyncio.run(
+        run_terrarium(
+            model=args.model,
+            num_ticks=args.ticks,
+            base_url=args.url,
+            dialogue_model=args.dialogue_model,
+            load_path=args.load,
+            save_path=args.save,
+            trace_path=args.trace,
+        )
+    )
 
 
 if __name__ == "__main__":

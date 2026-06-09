@@ -45,8 +45,14 @@ def _agent_series(trace: Trace) -> dict[str, dict]:
         for snap in tick.agents:
             s = series.setdefault(
                 snap.agent_id,
-                {"name": snap.name, "ticks": [], "Energie": [], "Stimmung": [],
-                 "Hunger": [], "rooms": []},
+                {
+                    "name": snap.name,
+                    "ticks": [],
+                    "Energie": [],
+                    "Stimmung": [],
+                    "Hunger": [],
+                    "rooms": [],
+                },
             )
             s["ticks"].append(tick.tick)
             s["Energie"].append(snap.stats.stamina)
@@ -63,13 +69,22 @@ def _stat_figure(trace: Trace):
     for i, (_aid, s) in enumerate(series.items()):
         color = _PALETTE[i % len(_PALETTE)]
         for stat, dash in _STAT_DASH.items():
-            fig.add_trace(go.Scatter(
-                x=s["ticks"], y=s[stat], name=f"{s['name']} · {stat}",
-                mode="lines+markers", line={"color": color, "dash": dash},
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=s["ticks"],
+                    y=s[stat],
+                    name=f"{s['name']} · {stat}",
+                    mode="lines+markers",
+                    line={"color": color, "dash": dash},
+                )
+            )
     fig.update_layout(
-        title="Lebenskurven", xaxis_title="Tick", yaxis_title="Wert (0–1)",
-        yaxis={"range": [0, 1]}, template="plotly_white", height=420,
+        title="Lebenskurven",
+        xaxis_title="Tick",
+        yaxis_title="Wert (0–1)",
+        yaxis={"range": [0, 1]},
+        template="plotly_white",
+        height=420,
     )
     return fig
 
@@ -88,18 +103,26 @@ def _causality_figure(trace: Trace):
 
     if not ids:
         fig = go.Figure()
-        fig.add_annotation(text="Keine Gespräche in diesem Lauf",
-                           showarrow=False, font={"size": 16})
-        fig.update_layout(title="Reaktionsketten", height=300,
-                          template="plotly_white")
+        fig.add_annotation(
+            text="Keine Gespräche in diesem Lauf", showarrow=False, font={"size": 16}
+        )
+        fig.update_layout(title="Reaktionsketten", height=300, template="plotly_white")
         return fig
 
-    fig = go.Figure(go.Treemap(
-        ids=ids, labels=labels, parents=parents, branchvalues="remainder",
-        root_color="lightgrey",
-    ))
-    fig.update_layout(title="Reaktionsketten (wer reagiert auf wen)",
-                      height=420, template="plotly_white")
+    fig = go.Figure(
+        go.Treemap(
+            ids=ids,
+            labels=labels,
+            parents=parents,
+            branchvalues="remainder",
+            root_color="lightgrey",
+        )
+    )
+    fig.update_layout(
+        title="Reaktionsketten (wer reagiert auf wen)",
+        height=420,
+        template="plotly_white",
+    )
     return fig
 
 
@@ -109,13 +132,21 @@ def _movement_figure(trace: Trace):
     series = _agent_series(trace)
     for i, (_aid, s) in enumerate(series.items()):
         color = _PALETTE[i % len(_PALETTE)]
-        fig.add_trace(go.Scatter(
-            x=s["ticks"], y=s["rooms"], name=s["name"],
-            mode="lines+markers", line={"color": color, "shape": "hv"},
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=s["ticks"],
+                y=s["rooms"],
+                name=s["name"],
+                mode="lines+markers",
+                line={"color": color, "shape": "hv"},
+            )
+        )
     fig.update_layout(
-        title="Raumwechsel", xaxis_title="Tick", yaxis_title="Raum",
-        template="plotly_white", height=360,
+        title="Raumwechsel",
+        xaxis_title="Tick",
+        yaxis_title="Raum",
+        template="plotly_white",
+        height=360,
     )
     return fig
 
@@ -161,8 +192,12 @@ def build_report_html(trace: Trace) -> str:
 
     # Erste Figur bettet die Plotly-Bibliothek ein, die anderen nutzen sie mit.
     fig_stats = pio.to_html(_stat_figure(trace), include_plotlyjs=True, full_html=False)
-    fig_causality = pio.to_html(_causality_figure(trace), include_plotlyjs=False, full_html=False)
-    fig_movement = pio.to_html(_movement_figure(trace), include_plotlyjs=False, full_html=False)
+    fig_causality = pio.to_html(
+        _causality_figure(trace), include_plotlyjs=False, full_html=False
+    )
+    fig_movement = pio.to_html(
+        _movement_figure(trace), include_plotlyjs=False, full_html=False
+    )
 
     protocol = html.escape("\n".join(render_trace_lines(trace)))
 

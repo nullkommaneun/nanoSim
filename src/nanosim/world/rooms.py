@@ -47,6 +47,7 @@ BALCONY = Room(
 # Layouts (vorgefertigte Welten)
 # ---------------------------------------------------------------------------
 
+
 def create_default_world() -> WorldRegistry:
     """Erstelle das Standard-Terrarium mit 4 Räumen.
 

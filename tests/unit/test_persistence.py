@@ -15,14 +15,24 @@ from nanosim.persistence import (
 @pytest.fixture
 def world():
     w = WorldRegistry()
-    w.add_room(Room(
-        room_id="kitchen", name="Küche", description="Eine warme Küche.",
-        objects=["futternapf"], exits={"north": "garden"},
-    ))
-    w.add_room(Room(
-        room_id="garden", name="Garten", description="Ein sonniger Garten.",
-        objects=["gras"], exits={"south": "kitchen"},
-    ))
+    w.add_room(
+        Room(
+            room_id="kitchen",
+            name="Küche",
+            description="Eine warme Küche.",
+            objects=["futternapf"],
+            exits={"north": "garden"},
+        )
+    )
+    w.add_room(
+        Room(
+            room_id="garden",
+            name="Garten",
+            description="Ein sonniger Garten.",
+            objects=["gras"],
+            exits={"south": "kitchen"},
+        )
+    )
     w.get_room("kitchen").occupants.add("cat_01")
     return w
 
@@ -30,8 +40,11 @@ def world():
 @pytest.fixture
 def profiles():
     cat = AgentProfile(
-        agent_id="cat_01", name="Whiskers", persona="Neugierige Katze.",
-        location_id="kitchen", stats=AgentStats(stamina=0.7, mood=0.6, hunger=0.4),
+        agent_id="cat_01",
+        name="Whiskers",
+        persona="Neugierige Katze.",
+        location_id="kitchen",
+        stats=AgentStats(stamina=0.7, mood=0.6, hunger=0.4),
     )
     cat.add_memory("Tick 3: Habe Milch getrunken")
     return [cat]
@@ -107,7 +120,9 @@ class TestResumeHelper:
 class TestSnapshotModel:
     def test_snapshot_is_json_serializable(self, world, profiles):
         snap = Snapshot(
-            tick_count=1, rooms=world.all_rooms(), profiles=profiles,
+            tick_count=1,
+            rooms=world.all_rooms(),
+            profiles=profiles,
         )
         text = snap.model_dump_json()
         assert "kitchen" in text

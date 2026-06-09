@@ -48,7 +48,9 @@ class TwoTierRouter:
         AgentAction (so bleibt er Drop-in-kompatibel zum LlamaRouter).
         """
         decision = await self._decider.think(
-            prompt, DecisionAction, system=system,
+            prompt,
+            DecisionAction,
+            system=system,
         )
         if decision is None:
             return None
@@ -58,9 +60,13 @@ class TwoTierRouter:
 
         # Sprechen → das große Modell formuliert die Rede.
         line = await self._talker.think(
-            prompt + _SPEAK_INSTRUCTION, SpeechLine, system=system,
+            prompt + _SPEAK_INSTRUCTION,
+            SpeechLine,
+            system=system,
         )
         message = line.message if line is not None else None
         return AgentAction(
-            action=ActionType.SPEAK, target=decision.target, message=message,
+            action=ActionType.SPEAK,
+            target=decision.target,
+            message=message,
         )

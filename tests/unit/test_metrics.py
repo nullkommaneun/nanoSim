@@ -21,47 +21,91 @@ def _trace(ticks):
 
 class TestComputeMetrics:
     def test_reaction_chains_counts_caused_by_speaks(self):
-        t = _trace([TickRecord(
-            tick=0, agents=[_snap("a", "k"), _snap("b", "k")],
-            decisions=[Decision(agent_id="a", action=ActionType.SPEAK, message="hi")],
-            events=[
-                BaseEvent(id="e1", type=EventType.AGENT_SPEAK, source="a", payload={"message": "hi"}),
-                BaseEvent(id="e2", type=EventType.AGENT_SPEAK, source="b", payload={"message": "yo"}, caused_by="e1"),
-            ],
-        )])
+        t = _trace(
+            [
+                TickRecord(
+                    tick=0,
+                    agents=[_snap("a", "k"), _snap("b", "k")],
+                    decisions=[
+                        Decision(agent_id="a", action=ActionType.SPEAK, message="hi")
+                    ],
+                    events=[
+                        BaseEvent(
+                            id="e1",
+                            type=EventType.AGENT_SPEAK,
+                            source="a",
+                            payload={"message": "hi"},
+                        ),
+                        BaseEvent(
+                            id="e2",
+                            type=EventType.AGENT_SPEAK,
+                            source="b",
+                            payload={"message": "yo"},
+                            caused_by="e1",
+                        ),
+                    ],
+                )
+            ]
+        )
         assert compute_metrics(t)["reaction_chains"] == 1
 
     def test_togetherness_and_avg_room(self):
-        t = _trace([
-            TickRecord(tick=0, agents=[_snap("a", "k"), _snap("b", "k")], decisions=[], events=[]),
-            TickRecord(tick=1, agents=[_snap("a", "k"), _snap("b", "g")], decisions=[], events=[]),
-        ])
+        t = _trace(
+            [
+                TickRecord(
+                    tick=0,
+                    agents=[_snap("a", "k"), _snap("b", "k")],
+                    decisions=[],
+                    events=[],
+                ),
+                TickRecord(
+                    tick=1,
+                    agents=[_snap("a", "k"), _snap("b", "g")],
+                    decisions=[],
+                    events=[],
+                ),
+            ]
+        )
         m = compute_metrics(t)
-        assert m["togetherness"] == 0.5   # 1 von 2 Ticks hatte >=2 zusammen
-        assert m["avg_max_room"] == 1.5   # Tick0 max=2, Tick1 max=1
+        assert m["togetherness"] == 0.5  # 1 von 2 Ticks hatte >=2 zusammen
+        assert m["avg_max_room"] == 1.5  # Tick0 max=2, Tick1 max=1
 
     def test_action_counts(self):
-        t = _trace([TickRecord(
-            tick=0, agents=[_snap("a", "k")],
-            decisions=[
-                Decision(agent_id="a", action=ActionType.MOVE, target="north"),
-                Decision(agent_id="a", action=ActionType.USE, target="napf"),
-            ],
-            events=[],
-        )])
+        t = _trace(
+            [
+                TickRecord(
+                    tick=0,
+                    agents=[_snap("a", "k")],
+                    decisions=[
+                        Decision(agent_id="a", action=ActionType.MOVE, target="north"),
+                        Decision(agent_id="a", action=ActionType.USE, target="napf"),
+                    ],
+                    events=[],
+                )
+            ]
+        )
         m = compute_metrics(t)
         assert m["moves"] == 1
         assert m["uses"] == 1
 
     def test_unique_message_ratio(self):
-        t = _trace([TickRecord(
-            tick=0, agents=[_snap("a", "k")],
-            decisions=[
-                Decision(agent_id="a", action=ActionType.SPEAK, message="hallo"),
-                Decision(agent_id="b", action=ActionType.SPEAK, message="hallo"),
-            ],
-            events=[],
-        )])
+        t = _trace(
+            [
+                TickRecord(
+                    tick=0,
+                    agents=[_snap("a", "k")],
+                    decisions=[
+                        Decision(
+                            agent_id="a", action=ActionType.SPEAK, message="hallo"
+                        ),
+                        Decision(
+                            agent_id="b", action=ActionType.SPEAK, message="hallo"
+                        ),
+                    ],
+                    events=[],
+                )
+            ]
+        )
         m = compute_metrics(t)
         assert m["speaks"] == 2
         assert m["unique_message_ratio"] == 0.5  # 1 eindeutige / 2

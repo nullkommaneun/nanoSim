@@ -9,14 +9,20 @@ from nanosim.models import Room
 @pytest.fixture
 def world():
     w = WorldRegistry()
-    w.add_room(Room(
-        room_id="kitchen", name="Küche",
-        exits={"north": "garden"},
-    ))
-    w.add_room(Room(
-        room_id="garden", name="Garten",
-        exits={"south": "kitchen"},
-    ))
+    w.add_room(
+        Room(
+            room_id="kitchen",
+            name="Küche",
+            exits={"north": "garden"},
+        )
+    )
+    w.add_room(
+        Room(
+            room_id="garden",
+            name="Garten",
+            exits={"south": "kitchen"},
+        )
+    )
     return w
 
 

@@ -64,7 +64,9 @@ class TestCliPersistenceArgs:
     def test_report_arg_parsed(self):
         from nanosim.main import build_parser
 
-        args = build_parser().parse_args(["--replay", "run.jsonl", "--report", "out.html"])
+        args = build_parser().parse_args(
+            ["--replay", "run.jsonl", "--report", "out.html"]
+        )
         assert args.report == "out.html"
         assert build_parser().parse_args([]).report is None
 
@@ -110,7 +112,9 @@ class TestJsonExtraction:
         assert LlamaRouter._extract_json(raw) == '{"action": "idle"}'
 
     def test_json_with_surrounding_text(self):
-        raw = 'Sure! Here you go:\n{"action": "speak", "message": "hi"}\nHope this helps!'
+        raw = (
+            'Sure! Here you go:\n{"action": "speak", "message": "hi"}\nHope this helps!'
+        )
         result = LlamaRouter._extract_json(raw)
         parsed = json.loads(result)
         assert parsed["action"] == "speak"
@@ -155,7 +159,9 @@ class TestThink:
         """Erster Versuch liefert valides JSON → kein Retry."""
         mock_response = {"message": {"content": '{"action": "idle"}'}}
 
-        with patch.object(router._client, "chat", new_callable=AsyncMock, return_value=mock_response):
+        with patch.object(
+            router._client, "chat", new_callable=AsyncMock, return_value=mock_response
+        ):
             result = await router.think("Was machst du?", AgentAction)
 
         assert result is not None
@@ -207,7 +213,9 @@ class TestThink:
         """Beide Versuche fehlgeschlagen → None."""
         bad_response = {"message": {"content": "I cannot do JSON"}}
 
-        with patch.object(router._client, "chat", new_callable=AsyncMock, return_value=bad_response):
+        with patch.object(
+            router._client, "chat", new_callable=AsyncMock, return_value=bad_response
+        ):
             result = await router.think("Was machst du?", AgentAction)
 
         assert result is None
@@ -219,7 +227,9 @@ class TestThink:
         mock_chat = AsyncMock(return_value=mock_response)
 
         with patch.object(router._client, "chat", mock_chat):
-            await router.think("Was machst du?", AgentAction, system="Du bist eine Katze")
+            await router.think(
+                "Was machst du?", AgentAction, system="Du bist eine Katze"
+            )
 
         messages = mock_chat.call_args[1]["messages"]
         assert messages[0]["role"] == "system"
@@ -232,6 +242,7 @@ class TestThink:
 
         async def slow_chat(**kwargs):
             import asyncio
+
             call_order.append(len(call_order))
             await asyncio.sleep(0.05)
             return {"message": {"content": '{"action": "idle"}'}}

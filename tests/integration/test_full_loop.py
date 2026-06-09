@@ -27,7 +27,9 @@ from nanosim.models import (
     Room,
 )
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(name)-25s %(levelname)-7s %(message)s")
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s %(name)-25s %(levelname)-7s %(message)s"
+)
 logger = logging.getLogger("test_full_loop")
 
 
@@ -35,22 +37,27 @@ logger = logging.getLogger("test_full_loop")
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def build_world() -> WorldRegistry:
     world = WorldRegistry()
-    world.add_room(Room(
-        room_id="kitchen",
-        name="Küche",
-        description="Eine warme Küche mit einem Futternapf und einem Fenster.",
-        objects=["futternapf", "fenster"],
-        exits={"north": "garden"},
-    ))
-    world.add_room(Room(
-        room_id="garden",
-        name="Garten",
-        description="Ein sonniger Garten mit Gras und einem Schmetterling.",
-        objects=["gras", "schmetterling"],
-        exits={"south": "kitchen"},
-    ))
+    world.add_room(
+        Room(
+            room_id="kitchen",
+            name="Küche",
+            description="Eine warme Küche mit einem Futternapf und einem Fenster.",
+            objects=["futternapf", "fenster"],
+            exits={"north": "garden"},
+        )
+    )
+    world.add_room(
+        Room(
+            room_id="garden",
+            name="Garten",
+            description="Ein sonniger Garten mit Gras und einem Schmetterling.",
+            objects=["gras", "schmetterling"],
+            exits={"south": "kitchen"},
+        )
+    )
     return world
 
 
@@ -74,17 +81,21 @@ def build_agents() -> list[AgentProfile]:
 
 
 def decay_stats(stats: AgentStats) -> AgentStats:
-    return stats.model_copy(update={
-        "hunger": min(1.0, stats.hunger + 0.05),
-        "stamina": max(0.0, stats.stamina - 0.03),
-        "mood": max(0.0, stats.mood - 0.02 * stats.hunger),
-    })
+    return stats.model_copy(
+        update={
+            "hunger": min(1.0, stats.hunger + 0.05),
+            "stamina": max(0.0, stats.stamina - 0.03),
+            "mood": max(0.0, stats.mood - 0.02 * stats.hunger),
+        }
+    )
 
 
 def build_prompt(agent: AgentProfile, world: WorldRegistry) -> str:
     room = world.get_room(agent.location_id)
     others = [a for a in room.occupants if a != agent.agent_id]
-    exits = ", ".join(f"{direction} → {room_id}" for direction, room_id in room.exits.items())
+    exits = ", ".join(
+        f"{direction} → {room_id}" for direction, room_id in room.exits.items()
+    )
 
     return (
         f"Du bist {agent.name}. {agent.persona}\n\n"
@@ -107,6 +118,7 @@ def build_prompt(agent: AgentProfile, world: WorldRegistry) -> str:
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.llm
 @pytest.mark.timeout(120)
@@ -146,8 +158,13 @@ async def test_full_tick_loop():
         # 1) Stats-Decay
         for agent in agents:
             agent.stats = decay_stats(agent.stats)
-            logger.info("[%s] Stats nach Decay: stamina=%.2f mood=%.2f hunger=%.2f",
-                        agent.name, agent.stats.stamina, agent.stats.mood, agent.stats.hunger)
+            logger.info(
+                "[%s] Stats nach Decay: stamina=%.2f mood=%.2f hunger=%.2f",
+                agent.name,
+                agent.stats.stamina,
+                agent.stats.mood,
+                agent.stats.hunger,
+            )
 
         # 2) Inbox verarbeiten → Memory
         for agent in agents:
@@ -169,14 +186,26 @@ async def test_full_tick_loop():
             )
 
             if action is None:
-                logger.warning("[%s] LLM hat kein valides JSON geliefert → idle", agent.name)
+                logger.warning(
+                    "[%s] LLM hat kein valides JSON geliefert → idle", agent.name
+                )
                 action = AgentAction(action=ActionType.IDLE)
 
-            logger.info("[%s] Action: %s (target=%s, message=%s)",
-                        agent.name, action.action.value, action.target, action.message)
+            logger.info(
+                "[%s] Action: %s (target=%s, message=%s)",
+                agent.name,
+                action.action.value,
+                action.target,
+                action.message,
+            )
 
-            record = {"tick": tick, "agent": agent.name, "action": action.action.value,
-                      "target": action.target, "message": action.message}
+            record = {
+                "tick": tick,
+                "agent": agent.name,
+                "action": action.action.value,
+                "target": action.target,
+                "message": action.message,
+            }
             all_actions.append(record)
 
             # 4) Action ausführen
@@ -194,15 +223,24 @@ async def test_full_tick_loop():
     logger.info("=" * 60)
     logger.info("ZUSAMMENFASSUNG: %d Ticks, %d Actions", num_ticks, len(all_actions))
     for rec in all_actions:
-        logger.info("  Tick %d | %-10s | %-6s | target=%s | msg=%s",
-                     rec["tick"], rec["agent"], rec["action"], rec["target"], rec["message"])
+        logger.info(
+            "  Tick %d | %-10s | %-6s | target=%s | msg=%s",
+            rec["tick"],
+            rec["agent"],
+            rec["action"],
+            rec["target"],
+            rec["message"],
+        )
 
     # Grundlegende Prüfungen
-    assert len(all_actions) == num_ticks * len(agents), "Jeder Agent muss pro Tick eine Action haben"
+    assert len(all_actions) == num_ticks * len(agents), (
+        "Jeder Agent muss pro Tick eine Action haben"
+    )
 
     for rec in all_actions:
-        assert rec["action"] in {"speak", "move", "use", "rest", "idle"}, \
+        assert rec["action"] in {"speak", "move", "use", "rest", "idle"}, (
             f"Unbekannte Action: {rec['action']}"
+        )
 
     # Stats müssen sich verändert haben
     for agent in agents:
@@ -234,7 +272,9 @@ async def execute_action(
             old_loc = agent.location_id
             world.move_agent(agent.agent_id, old_loc, target_room_id)
             agent.location_id = target_room_id
-            agent.add_memory(f"Tick {tick}: Bin von {old_loc} nach {target_room_id} gegangen")
+            agent.add_memory(
+                f"Tick {tick}: Bin von {old_loc} nach {target_room_id} gegangen"
+            )
             return BaseEvent(
                 type=EventType.AGENT_MOVE,
                 source=agent.agent_id,
@@ -242,7 +282,9 @@ async def execute_action(
                 payload={"from": old_loc, "to": target_room_id},
             )
         else:
-            agent.add_memory(f"Tick {tick}: Wollte nach {target_dir} gehen, aber kein Ausgang")
+            agent.add_memory(
+                f"Tick {tick}: Wollte nach {target_dir} gehen, aber kein Ausgang"
+            )
             return None
 
     elif action.action == ActionType.USE:
@@ -255,10 +297,12 @@ async def execute_action(
         )
 
     elif action.action == ActionType.REST:
-        agent.stats = agent.stats.model_copy(update={
-            "stamina": min(1.0, agent.stats.stamina + 0.2),
-            "hunger": min(1.0, agent.stats.hunger + 0.05),
-        })
+        agent.stats = agent.stats.model_copy(
+            update={
+                "stamina": min(1.0, agent.stats.stamina + 0.2),
+                "hunger": min(1.0, agent.stats.hunger + 0.05),
+            }
+        )
         agent.add_memory(f"Tick {tick}: Habe mich ausgeruht")
         return BaseEvent(
             type=EventType.AGENT_REST,

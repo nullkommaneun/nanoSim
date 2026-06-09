@@ -106,24 +106,35 @@ class BaseAgent:
 
         logger.info(
             "[%s] %s (target=%s, message=%s)",
-            self.profile.name, action.action.value, action.target, action.message,
+            self.profile.name,
+            action.action.value,
+            action.target,
+            action.message,
         )
 
         return self._execute(action, world, tick)
 
     def _execute(
-        self, action: AgentAction, world: WorldRegistry, tick: int,
+        self,
+        action: AgentAction,
+        world: WorldRegistry,
+        tick: int,
     ) -> BaseEvent | None:
         """Eine Action ausführen und das resultierende Event zurückgeben."""
 
         if action.action == ActionType.SPEAK:
             # Antwort auf Gehörtes → eine Ebene tiefer; spontan → Tiefe 0.
-            depth = self._heard_speak_depth + 1 if self._heard_speak_depth is not None else 0
+            depth = (
+                self._heard_speak_depth + 1
+                if self._heard_speak_depth is not None
+                else 0
+            )
             if depth > MAX_CAUSALITY_DEPTH:
                 # Kette zu tief → schweigen, damit kein Endlos-Echo entsteht.
                 logger.info(
                     "[%s] Schweigt: Reaktions-Kette zu tief (%d)",
-                    self.profile.name, depth,
+                    self.profile.name,
+                    depth,
                 )
                 self.profile.add_memory(
                     f"Tick {tick}: Wollte antworten, hielt aber inne (zu viel Gerede)"
@@ -146,10 +157,12 @@ class BaseAgent:
             return self._execute_use(action, world, tick)
 
         if action.action == ActionType.REST:
-            self.profile.stats = self.profile.stats.model_copy(update={
-                "stamina": min(1.0, self.profile.stats.stamina + 0.2),
-                "hunger": min(1.0, self.profile.stats.hunger + 0.05),
-            })
+            self.profile.stats = self.profile.stats.model_copy(
+                update={
+                    "stamina": min(1.0, self.profile.stats.stamina + 0.2),
+                    "hunger": min(1.0, self.profile.stats.hunger + 0.05),
+                }
+            )
             self.profile.add_memory(f"Tick {tick}: Ruhte mich aus")
             return BaseEvent(
                 type=EventType.AGENT_REST,
@@ -161,7 +174,10 @@ class BaseAgent:
         return None
 
     def _execute_use(
-        self, action: AgentAction, world: WorldRegistry, tick: int,
+        self,
+        action: AgentAction,
+        world: WorldRegistry,
+        tick: int,
     ) -> BaseEvent | None:
         """Use-Action ausführen: Objekt muss im Raum sein, dann wirkt es auf die Stats."""
         room = world.get_room(self.profile.location_id)
@@ -184,7 +200,10 @@ class BaseAgent:
         )
 
     def _execute_move(
-        self, action: AgentAction, world: WorldRegistry, tick: int,
+        self,
+        action: AgentAction,
+        world: WorldRegistry,
+        tick: int,
     ) -> BaseEvent | None:
         """Move-Action ausführen."""
         room = world.get_room(self.profile.location_id)
@@ -195,13 +214,17 @@ class BaseAgent:
             self.profile.add_memory(
                 f"Tick {tick}: Wollte nach {target_dir} gehen, aber kein Ausgang"
             )
-            logger.info("[%s] Kein Ausgang Richtung '%s'", self.profile.name, target_dir)
+            logger.info(
+                "[%s] Kein Ausgang Richtung '%s'", self.profile.name, target_dir
+            )
             return None
 
         old_loc = self.profile.location_id
         world.move_agent(self.agent_id, old_loc, target_room_id)
         self.profile.location_id = target_room_id
-        self.profile.add_memory(f"Tick {tick}: Ging von {old_loc} nach {target_room_id}")
+        self.profile.add_memory(
+            f"Tick {tick}: Ging von {old_loc} nach {target_room_id}"
+        )
 
         return BaseEvent(
             type=EventType.AGENT_MOVE,

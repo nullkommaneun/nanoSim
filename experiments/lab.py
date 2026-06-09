@@ -36,8 +36,8 @@ LOG_FILE = RESULTS / "lab.log"
 
 OLLAMA_URL = "http://localhost:11434"
 TICKS = 15
-RUN_TIMEOUT = 1800          # max 30 min pro Einzel-Lauf
-MAX_HOURS = 10              # Sicherheits-Stopp
+RUN_TIMEOUT = 1800  # max 30 min pro Einzel-Lauf
+MAX_HOURS = 10  # Sicherheits-Stopp
 RANK_KEY = "reaction_chains"  # Headline-Kennzahl fürs Ranking
 
 # Konfigurationen, die verglichen werden (Name, Entscheidungs-Modell, Dialog-Modell)
@@ -83,7 +83,8 @@ def ensure_ollama() -> bool:
     try:
         subprocess.Popen(
             ["ollama", "serve"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
     except FileNotFoundError:
@@ -102,16 +103,26 @@ def run_one(cfg: dict, idx: int) -> dict | None:
     """Eine Simulation als eigener Prozess, dann Kennzahlen aus dem Trace."""
     trace_path = RESULTS / f"_tmp_{cfg['name']}_{idx}.jsonl"
     cmd = [
-        sys.executable, "-m", "nanosim.main",
-        "--model", cfg["model"], "--ticks", str(TICKS),
-        "--trace", str(trace_path),
+        sys.executable,
+        "-m",
+        "nanosim.main",
+        "--model",
+        cfg["model"],
+        "--ticks",
+        str(TICKS),
+        "--trace",
+        str(trace_path),
     ]
     if cfg["dialogue"]:
         cmd += ["--dialogue-model", cfg["dialogue"]]
     try:
         subprocess.run(
-            cmd, cwd=REPO, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            timeout=RUN_TIMEOUT, check=True,
+            cmd,
+            cwd=REPO,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=RUN_TIMEOUT,
+            check=True,
         )
         metrics = compute_metrics(load_trace(trace_path))
         return metrics
@@ -147,9 +158,16 @@ def write_report() -> None:
         f"{total} Läufe · {TICKS} Ticks/Lauf · Ranking nach **{METRIC_LABELS[RANK_KEY]}**",
         "",
         "| Rang | Konfiguration | n | "
-        + " | ".join(METRIC_LABELS[k] for k in
-                     ["reaction_chains", "togetherness", "avg_max_room",
-                      "unique_message_ratio", "moves"])
+        + " | ".join(
+            METRIC_LABELS[k]
+            for k in [
+                "reaction_chains",
+                "togetherness",
+                "avg_max_room",
+                "unique_message_ratio",
+                "moves",
+            ]
+        )
         + " |",
         "|---|---|---|---|---|---|---|---|",
     ]
@@ -162,9 +180,16 @@ def write_report() -> None:
 
         lines.append(
             f"| {rank} | `{name}` | {len(runs)} | "
-            + " | ".join(cell(k) for k in
-                         ["reaction_chains", "togetherness", "avg_max_room",
-                          "unique_message_ratio", "moves"])
+            + " | ".join(
+                cell(k)
+                for k in [
+                    "reaction_chains",
+                    "togetherness",
+                    "avg_max_room",
+                    "unique_message_ratio",
+                    "moves",
+                ]
+            )
             + " |"
         )
 
@@ -184,7 +209,9 @@ def write_report() -> None:
 
 def main() -> None:
     RESULTS.mkdir(parents=True, exist_ok=True)
-    log(f"=== Experiment-Labor gestartet (max {MAX_HOURS}h, {len(CONFIGS)} Konfigs) ===")
+    log(
+        f"=== Experiment-Labor gestartet (max {MAX_HOURS}h, {len(CONFIGS)} Konfigs) ==="
+    )
     start = time.time()
     round_i = 0
     while time.time() - start < MAX_HOURS * 3600:
@@ -198,15 +225,20 @@ def main() -> None:
             if metrics is None:
                 continue
             rec = {
-                "round": round_i, "config": cfg["name"],
-                "model": cfg["model"], "dialogue": cfg["dialogue"],
-                "ts": time.time(), "metrics": metrics,
+                "round": round_i,
+                "config": cfg["name"],
+                "model": cfg["model"],
+                "dialogue": cfg["dialogue"],
+                "ts": time.time(),
+                "metrics": metrics,
             }
             with RUNS_FILE.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-            log(f"  {cfg['name']}: {RANK_KEY}={metrics[RANK_KEY]} "
+            log(
+                f"  {cfg['name']}: {RANK_KEY}={metrics[RANK_KEY]} "
                 f"together={metrics['togetherness']:.2f} "
-                f"vielfalt={metrics['unique_message_ratio']:.2f}")
+                f"vielfalt={metrics['unique_message_ratio']:.2f}"
+            )
         write_report()
         log(f"Runde {round_i} fertig, Report aktualisiert.")
     log("=== Zeit-Obergrenze erreicht, Labor beendet. ===")

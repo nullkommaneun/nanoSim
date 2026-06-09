@@ -25,11 +25,13 @@ def decay_stats(stats: AgentStats) -> AgentStats:
     - Stamina sinkt langsam (-0.03)
     - Mood sinkt proportional zum Hunger
     """
-    return stats.model_copy(update={
-        "hunger": min(1.0, stats.hunger + 0.05),
-        "stamina": max(0.0, stats.stamina - 0.03),
-        "mood": max(0.0, stats.mood - 0.02 * stats.hunger),
-    })
+    return stats.model_copy(
+        update={
+            "hunger": min(1.0, stats.hunger + 0.05),
+            "stamina": max(0.0, stats.stamina - 0.03),
+            "mood": max(0.0, stats.mood - 0.02 * stats.hunger),
+        }
+    )
 
 
 class TickEngine:
@@ -74,7 +76,10 @@ class TickEngine:
             s = agent.profile.stats
             logger.info(
                 "[%s] Stats: stamina=%.2f mood=%.2f hunger=%.2f",
-                agent.profile.name, s.stamina, s.mood, s.hunger,
+                agent.profile.name,
+                s.stamina,
+                s.mood,
+                s.hunger,
             )
 
         # 2) Inbox → Memory
@@ -92,7 +97,9 @@ class TickEngine:
                 emitted.append(event)
                 await self.bus.publish(event)
                 logger.info(
-                    "[%s] → %s", agent.profile.name, event.type.value,
+                    "[%s] → %s",
+                    agent.profile.name,
+                    event.type.value,
                 )
 
         # 4) Events zustellen

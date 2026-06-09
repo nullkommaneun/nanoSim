@@ -74,7 +74,11 @@ class TraceWriter:
     """
 
     def __init__(
-        self, path: str | Path, *, model: str, agent_ids: list[str],
+        self,
+        path: str | Path,
+        *,
+        model: str,
+        agent_ids: list[str],
     ) -> None:
         self.path = Path(path)
         self._fh = self.path.open("w", encoding="utf-8")

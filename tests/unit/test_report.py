@@ -18,7 +18,9 @@ pytest.importorskip("plotly")
 
 def _snap(agent_id, name, room, hunger):
     return AgentSnapshot(
-        agent_id=agent_id, name=name, location_id=room,
+        agent_id=agent_id,
+        name=name,
+        location_id=room,
         stats=AgentStats(stamina=0.9, mood=0.8, hunger=hunger),
     )
 
@@ -30,20 +32,49 @@ def trace():
         ticks=[
             TickRecord(
                 tick=0,
-                agents=[_snap("cat_01", "Whiskers", "kitchen", 0.05),
-                        _snap("dog_01", "Bello", "garden", 0.05)],
-                decisions=[Decision(agent_id="cat_01", action=ActionType.SPEAK, message="Wo ist meine Milch?")],
-                events=[BaseEvent(id="e1", type=EventType.AGENT_SPEAK, source="cat_01",
-                                  location_id="kitchen", payload={"message": "Wo ist meine Milch?"})],
+                agents=[
+                    _snap("cat_01", "Whiskers", "kitchen", 0.05),
+                    _snap("dog_01", "Bello", "garden", 0.05),
+                ],
+                decisions=[
+                    Decision(
+                        agent_id="cat_01",
+                        action=ActionType.SPEAK,
+                        message="Wo ist meine Milch?",
+                    )
+                ],
+                events=[
+                    BaseEvent(
+                        id="e1",
+                        type=EventType.AGENT_SPEAK,
+                        source="cat_01",
+                        location_id="kitchen",
+                        payload={"message": "Wo ist meine Milch?"},
+                    )
+                ],
             ),
             TickRecord(
                 tick=1,
-                agents=[_snap("cat_01", "Whiskers", "kitchen", 0.10),
-                        _snap("dog_01", "Bello", "kitchen", 0.10)],
-                decisions=[Decision(agent_id="dog_01", action=ActionType.SPEAK, message="Wuff!")],
-                events=[BaseEvent(id="e2", type=EventType.AGENT_SPEAK, source="dog_01",
-                                  location_id="kitchen", payload={"message": "Wuff!"},
-                                  causality_depth=1, caused_by="e1")],
+                agents=[
+                    _snap("cat_01", "Whiskers", "kitchen", 0.10),
+                    _snap("dog_01", "Bello", "kitchen", 0.10),
+                ],
+                decisions=[
+                    Decision(
+                        agent_id="dog_01", action=ActionType.SPEAK, message="Wuff!"
+                    )
+                ],
+                events=[
+                    BaseEvent(
+                        id="e2",
+                        type=EventType.AGENT_SPEAK,
+                        source="dog_01",
+                        location_id="kitchen",
+                        payload={"message": "Wuff!"},
+                        causality_depth=1,
+                        caused_by="e1",
+                    )
+                ],
             ),
         ],
     )

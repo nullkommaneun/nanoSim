@@ -21,9 +21,9 @@ def format_event(event: BaseEvent) -> str:
     if event.type == EventType.AGENT_SPEAK:
         return f'  💬 {src} sagt: "{p.get("message", "...")}"'
     if event.type == EventType.AGENT_MOVE:
-        return f'  🚶 {src} geht von {p.get("from", "?")} nach {p.get("to", "?")}'
+        return f"  🚶 {src} geht von {p.get('from', '?')} nach {p.get('to', '?')}"
     if event.type == EventType.AGENT_USE:
-        return f'  🐾 {src} benutzt {p.get("object", "?")}'
+        return f"  🐾 {src} benutzt {p.get('object', '?')}"
     if event.type == EventType.AGENT_REST:
         return f"  😴 {src} ruht sich aus"
     return f"  · {src}: {event.type.value}"

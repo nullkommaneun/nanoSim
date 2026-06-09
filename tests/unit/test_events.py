@@ -1,6 +1,5 @@
 """Tests für den EventBus."""
 
-
 import pytest
 
 from nanosim.core.events import EventBus
@@ -76,7 +75,9 @@ class TestEventBus:
         bus.subscribe("agent_a", lambda e: _append(received_a, e), lambda: "kitchen")
         bus.subscribe("agent_b", lambda e: _append(received_b, e), lambda: "kitchen")
 
-        await bus.publish(_make_event("system", location_id="kitchen", target="agent_a"))
+        await bus.publish(
+            _make_event("system", location_id="kitchen", target="agent_a")
+        )
         await bus.drain()
 
         assert len(received_a) == 1
@@ -100,11 +101,13 @@ class TestEventBus:
         bus.subscribe("agent_a", lambda e: _append(received, e), lambda: "kitchen")
 
         for i in range(5):
-            await bus.publish(BaseEvent(
-                type=EventType.TICK,
-                source="system",
-                payload={"tick": i},
-            ))
+            await bus.publish(
+                BaseEvent(
+                    type=EventType.TICK,
+                    source="system",
+                    payload={"tick": i},
+                )
+            )
         await bus.drain()
 
         assert [e.payload["tick"] for e in received] == [0, 1, 2, 3, 4]

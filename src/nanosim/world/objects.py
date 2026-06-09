@@ -13,19 +13,19 @@ from nanosim.models import AgentStats
 # Wirkung pro Objekt: Stat-Name → Delta (positiv hebt, negativ senkt).
 OBJECT_EFFECTS: dict[str, dict[str, float]] = {
     # Küche
-    "futternapf": {"hunger": -0.5, "mood": 0.05},   # fressen
-    "wasserschale": {"hunger": -0.1},               # trinken (leichte Sättigung)
+    "futternapf": {"hunger": -0.5, "mood": 0.05},  # fressen
+    "wasserschale": {"hunger": -0.1},  # trinken (leichte Sättigung)
     # Garten
-    "gras": {"hunger": -0.15},                      # knabbern
+    "gras": {"hunger": -0.15},  # knabbern
     "schmetterling": {"mood": 0.2, "stamina": -0.05},  # jagen macht Spaß, kostet Kraft
-    "blume": {"mood": 0.1},                         # schnuppern
+    "blume": {"mood": 0.1},  # schnuppern
     # Wohnzimmer
-    "sofa": {"stamina": 0.3, "mood": 0.1},          # ausruhen
-    "kratzbaum": {"mood": 0.2, "stamina": 0.05},    # kratzen/klettern
-    "teppich": {"stamina": 0.1},                    # dösen
-    "wollknäuel": {"mood": 0.25, "stamina": -0.05}, # spielen
+    "sofa": {"stamina": 0.3, "mood": 0.1},  # ausruhen
+    "kratzbaum": {"mood": 0.2, "stamina": 0.05},  # kratzen/klettern
+    "teppich": {"stamina": 0.1},  # dösen
+    "wollknäuel": {"mood": 0.25, "stamina": -0.05},  # spielen
     # Balkon
-    "vogelhaus": {"mood": 0.15},                    # Vögel beobachten
+    "vogelhaus": {"mood": 0.15},  # Vögel beobachten
 }
 
 

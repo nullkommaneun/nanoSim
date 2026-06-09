@@ -97,7 +97,9 @@ class LlamaRouter:
         return None
 
     async def _call_ollama(
-        self, messages: list[dict[str, str]], schema: dict,
+        self,
+        messages: list[dict[str, str]],
+        schema: dict,
     ) -> str:
         """Einen Chat-Call an Ollama senden, geschützt durch den Semaphore.
 
