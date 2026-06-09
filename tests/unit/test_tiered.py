@@ -59,8 +59,8 @@ class TestTwoTierRouter:
         router._talker.think.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_talker_none_yields_speak_without_message(self, router):
-        """Versagt das große Modell, bleibt die Aktion 'speak' (ohne Text)."""
+    async def test_talker_none_falls_back_to_idle(self, router):
+        """Versagt das große Modell (keine Rede), wird die Aktion idle — kein leeres speak."""
         router._decider.think = AsyncMock(
             return_value=DecisionAction(action=ActionType.SPEAK)
         )
@@ -68,7 +68,7 @@ class TestTwoTierRouter:
 
         result = await router.think("ctx", AgentAction)
 
-        assert result.action == ActionType.SPEAK
+        assert result.action == ActionType.IDLE
         assert result.message is None
 
     @pytest.mark.asyncio

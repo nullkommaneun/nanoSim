@@ -123,6 +123,15 @@ class BaseAgent:
         """Eine Action ausführen und das resultierende Event zurückgeben."""
 
         if action.action == ActionType.SPEAK:
+            # Speak ohne Text → wie idle behandeln (kein Geister-Event).
+            if action.message is None or not action.message.strip():
+                logger.info(
+                    "[%s] Speak ohne Text → idle (kein Event)", self.profile.name
+                )
+                self.profile.add_memory(
+                    f"Tick {tick}: Wollte etwas sagen, fand aber keine Worte"
+                )
+                return None
             # Antwort auf Gehörtes → eine Ebene tiefer; spontan → Tiefe 0.
             depth = (
                 self._heard_speak_depth + 1
@@ -145,7 +154,7 @@ class BaseAgent:
                 type=EventType.AGENT_SPEAK,
                 source=self.agent_id,
                 location_id=self.profile.location_id,
-                payload={"message": action.message or "..."},
+                payload={"message": action.message},
                 causality_depth=depth,
                 caused_by=self._heard_speak_id if depth > 0 else None,
             )

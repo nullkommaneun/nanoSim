@@ -378,6 +378,26 @@ class TestAgentExecution:
             event = await agent.tick(world, tick=0)
         assert event is None  # idle → kein Event
 
+    @pytest.mark.asyncio
+    async def test_tick_speak_without_message_becomes_idle(self, agent, world):
+        """speak ohne Text → kein Event, kein Geister-Speak (wie idle)."""
+        world.get_room("kitchen").occupants.add("cat_01")
+        mock_resp = {"message": {"content": '{"action": "speak", "message": null}'}}
+        with patch.object(
+            agent.router._client, "chat", new_callable=AsyncMock, return_value=mock_resp
+        ):
+            event = await agent.tick(world, tick=0)
+        assert event is None
+        assert not any("sagte: 'None'" in m for m in agent.profile.memory)
+
+    def test_execute_speak_empty_string_no_event(self, agent, world):
+        """Reiner Whitespace als Rede → ebenfalls kein Event."""
+        from nanosim.models import ActionType, AgentAction
+
+        action = AgentAction(action=ActionType.SPEAK, message="   ")
+        event = agent._execute(action, world, tick=0)
+        assert event is None
+
 
 # ---------------------------------------------------------------------------
 # BaseAgent — Causality-Depth (Schutz vor Endlos-Event-Ketten)

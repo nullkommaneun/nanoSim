@@ -64,9 +64,12 @@ class TwoTierRouter:
             SpeechLine,
             system=system,
         )
-        message = line.message if line is not None else None
+        # Versagt das Dialog-Modell (keine/leere Rede) → idle statt leeres speak,
+        # damit die aufgezeichnete Entscheidung zur ausgeführten Aktion passt.
+        if line is None or not line.message.strip():
+            return AgentAction(action=ActionType.IDLE)
         return AgentAction(
             action=ActionType.SPEAK,
             target=decision.target,
-            message=message,
+            message=line.message,
         )
