@@ -10,7 +10,6 @@ Testet das Zusammenspiel aller Komponenten:
 Voraussetzung: Ollama läuft auf localhost:11434 mit llama3.1:8b
 """
 
-import asyncio
 import logging
 
 import pytest

@@ -9,8 +9,6 @@ from nanosim.agents.prompt import build_prompt, build_system_prompt
 from nanosim.core.world import WorldRegistry
 from nanosim.llm.router import LlamaRouter
 from nanosim.models import (
-    ActionType,
-    AgentAction,
     AgentProfile,
     AgentStats,
     BaseEvent,

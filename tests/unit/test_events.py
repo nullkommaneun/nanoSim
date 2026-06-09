@@ -1,6 +1,5 @@
 """Tests für den EventBus."""
 
-import asyncio
 
 import pytest
 
