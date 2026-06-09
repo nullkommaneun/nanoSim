@@ -336,6 +336,16 @@ def _on_signal(signum, _frame) -> None:
     log(f"Signal {signum} empfangen — beende nach aktuellem Lauf sauber.")
 
 
+def _interruptible_sleep(seconds: float) -> None:
+    """Schlafen, aber auf _stop reagieren (Stop wird nicht 60s blockiert)."""
+    end = time.time() + seconds
+    while not _stop:
+        remaining = end - time.time()
+        if remaining <= 0:
+            break
+        time.sleep(min(2.0, remaining))
+
+
 def write_manifest(configs: list[dict], experiment: str) -> None:
     data = {
         "started": _ts(),
@@ -389,23 +399,22 @@ def main() -> None:
             order = remaining[:]
             rng.shuffle(order)
             log(f"--- Runde {round_i} · {len(order)} Configs (Seed {seed_base}) ---")
+            ran_something = False
             for cfg in order:
                 if _stop:
                     break
                 if not ensure_ollama():
-                    time.sleep(30)
+                    _interruptible_sleep(30)
+                    continue
+                # VRAM-Preflight: zu wenig frei → NICHT als Ergebnis werten,
+                # nur überspringen (Umgebungs-Zustand, kein Experiment-Outcome).
+                if not vram_ok(cfg):
+                    log(f"  SKIP {cfg['name']}: zu wenig freier VRAM (warte auf Freigabe).")
                     continue
                 run_seed = seed_base * 1000 + round_i
-                if not vram_ok(cfg):
-                    rec = RunRecord(
-                        round=round_i, config=cfg["name"], ts=time.time(),
-                        status="skip", model=cfg.get("model"),
-                    )
-                    append_record(RUNS_FILE, rec)
-                    log(f"  SKIP {cfg['name']}: zu wenig freier VRAM.")
-                    continue
                 rec = run_one(cfg, round_i, run_seed)
                 append_record(RUNS_FILE, rec)
+                ran_something = True
                 if rec.ok:
                     runs_ok += 1
                 budget_left = int(MAX_HOURS * 3600 - (time.time() - start))
@@ -420,7 +429,17 @@ def main() -> None:
                         f"({rec.duration_s}s)"
                     )
             write_report_safe(_report_meta(experiment, commit, start))
-            log(f"Runde {round_i} fertig, Report aktualisiert.")
+            # Konnte nichts laufen (VRAM belegt / Ollama weg) → mit Backoff warten,
+            # statt in einer Leerlaufschleife die CPU zu verbrennen.
+            if not ran_something and not _stop:
+                log("Runde komplett übersprungen (VRAM/Ollama) — warte 60s auf Ressourcen.")
+                write_heartbeat(
+                    round=round_i, runs_ok=runs_ok,
+                    current_config="(wartet auf VRAM)", waiting=True,
+                )
+                _interruptible_sleep(60)
+            else:
+                log(f"Runde {round_i} fertig, Report aktualisiert.")
     finally:
         write_report_safe(_report_meta(experiment, commit, start))
         write_heartbeat(round=round_i, runs_ok=runs_ok, done=True)
