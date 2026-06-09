@@ -19,6 +19,7 @@ Start (aus dem Repo, mit aktivem venv):
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -34,20 +35,50 @@ RUNS_FILE = RESULTS / "runs.jsonl"
 REPORT_FILE = RESULTS / "report.md"
 LOG_FILE = RESULTS / "lab.log"
 
-OLLAMA_URL = "http://localhost:11434"
+# Ollama-Host: per Env überschreibbar (z.B. für einen entfernten GPU-Server).
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 TICKS = 15
 RUN_TIMEOUT = 1800  # max 30 min pro Einzel-Lauf
 MAX_HOURS = 10  # Sicherheits-Stopp
 RANK_KEY = "reaction_chains"  # Headline-Kennzahl fürs Ranking
 
-# Konfigurationen, die verglichen werden (Name, Entscheidungs-Modell, Dialog-Modell)
-CONFIGS = [
-    {"name": "single-1b", "model": "gemma3:1b", "dialogue": None},
-    {"name": "single-3b", "model": "llama3.2:3b", "dialogue": None},
-    {"name": "single-8b", "model": "llama3.1:8b", "dialogue": None},
-    {"name": "tier-1b+8b", "model": "gemma3:1b", "dialogue": "llama3.1:8b"},
-    {"name": "tier-3b+8b", "model": "llama3.2:3b", "dialogue": "llama3.1:8b"},
-]
+# Nachtsieger als feste Basis für die neuen Stellschrauben-Experimente.
+_WINNER = {"model": "llama3.2:3b", "dialogue": "llama3.1:8b"}
+
+# Benannte Experimente. Jede Config: name + model + dialogue (+ optional
+# world / prompt_variant / memory_window). Auswahl per Env LAB_EXPERIMENT.
+EXPERIMENTS: dict[str, list[dict]] = {
+    "models": [
+        {"name": "single-1b", "model": "gemma3:1b", "dialogue": None},
+        {"name": "single-3b", "model": "llama3.2:3b", "dialogue": None},
+        {"name": "single-8b", "model": "llama3.1:8b", "dialogue": None},
+        {"name": "tier-1b+8b", "model": "gemma3:1b", "dialogue": "llama3.1:8b"},
+        {"name": "tier-3b+8b", "model": "llama3.2:3b", "dialogue": "llama3.1:8b"},
+    ],
+    "prompt": [
+        {"name": f"prompt-{v}", **_WINNER, "prompt_variant": v}
+        for v in ("baseline", "soft", "hard", "naming")
+    ],
+    "world": [
+        {"name": f"world-{w}", **_WINNER, "world": w}
+        for w in ("default", "corridor6", "hub5", "twin")
+    ],
+    "memory": [
+        {"name": f"mem-{m}", **_WINNER, "memory_window": m}
+        for m in (1, 3, 6, 10)
+    ],
+}
+
+
+def _active_configs() -> list[dict]:
+    """Welche Configs gesweept werden — per Env LAB_EXPERIMENT (Default: alle neuen)."""
+    choice = os.environ.get("LAB_EXPERIMENT", "all")
+    if choice == "all":
+        return EXPERIMENTS["prompt"] + EXPERIMENTS["world"] + EXPERIMENTS["memory"]
+    return EXPERIMENTS.get(choice, EXPERIMENTS["models"])
+
+
+CONFIGS = _active_configs()
 
 METRIC_LABELS = {
     "reaction_chains": "Reaktionen",
@@ -79,6 +110,10 @@ def ensure_ollama() -> bool:
     """Stelle sicher, dass der Ollama-Server läuft (sonst starten + warten)."""
     if ollama_up():
         return True
+    # Bei entferntem Host nicht versuchen, lokal zu starten — nur melden.
+    if not any(h in OLLAMA_URL for h in ("localhost", "127.0.0.1")):
+        log(f"FEHLER: entfernter Ollama unter {OLLAMA_URL} nicht erreichbar.")
+        return False
     log("Ollama nicht erreichbar — starte 'ollama serve' ...")
     try:
         subprocess.Popen(
@@ -99,9 +134,8 @@ def ensure_ollama() -> bool:
     return False
 
 
-def run_one(cfg: dict, idx: int) -> dict | None:
-    """Eine Simulation als eigener Prozess, dann Kennzahlen aus dem Trace."""
-    trace_path = RESULTS / f"_tmp_{cfg['name']}_{idx}.jsonl"
+def _build_cmd(cfg: dict, trace_path: Path) -> list[str]:
+    """Den nanosim-Aufruf für eine Config zusammenbauen (alle Stellschrauben)."""
     cmd = [
         sys.executable,
         "-m",
@@ -110,11 +144,26 @@ def run_one(cfg: dict, idx: int) -> dict | None:
         cfg["model"],
         "--ticks",
         str(TICKS),
+        "--url",
+        OLLAMA_URL,
         "--trace",
         str(trace_path),
     ]
-    if cfg["dialogue"]:
+    if cfg.get("dialogue"):
         cmd += ["--dialogue-model", cfg["dialogue"]]
+    if cfg.get("world"):
+        cmd += ["--world", cfg["world"]]
+    if cfg.get("prompt_variant"):
+        cmd += ["--prompt-variant", cfg["prompt_variant"]]
+    if cfg.get("memory_window") is not None:
+        cmd += ["--memory-window", str(cfg["memory_window"])]
+    return cmd
+
+
+def run_one(cfg: dict, idx: int) -> dict | None:
+    """Eine Simulation als eigener Prozess, dann Kennzahlen aus dem Trace."""
+    trace_path = RESULTS / f"_tmp_{cfg['name']}_{idx}.jsonl"
+    cmd = _build_cmd(cfg, trace_path)
     try:
         subprocess.run(
             cmd,
@@ -227,10 +276,9 @@ def main() -> None:
             rec = {
                 "round": round_i,
                 "config": cfg["name"],
-                "model": cfg["model"],
-                "dialogue": cfg["dialogue"],
                 "ts": time.time(),
                 "metrics": metrics,
+                **{k: v for k, v in cfg.items() if k != "name"},
             }
             with RUNS_FILE.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
