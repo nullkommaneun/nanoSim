@@ -25,7 +25,7 @@ from nanosim.replay import play_trace
 from nanosim.report import write_report
 from nanosim.trace import TraceWriter
 from nanosim.world.personas import create_default_agents
-from nanosim.world.rooms import create_default_world
+from nanosim.world.rooms import WORLD_LAYOUTS
 
 console = Console()
 
@@ -48,20 +48,25 @@ def _build_router(
 
 def _build_world_and_profiles(
     load_path: str | None,
+    world_name: str = "default",
 ) -> tuple[WorldRegistry, list[AgentProfile], int]:
     """Welt + Agent-Profile bereitstellen.
 
     Mit `load_path` wird aus einem Snapshot fortgesetzt (inkl. Tick-Zähler),
-    sonst eine frische Default-Welt gebaut und die Agenten platziert.
+    sonst das gewählte Layout (`world_name`) gebaut und die Agenten platziert.
     """
     if load_path:
         snapshot = load_snapshot(load_path)
         world = world_from_snapshot(snapshot)
         return world, snapshot.profiles, snapshot.tick_count
 
-    world = create_default_world()
+    factory, start_rooms = WORLD_LAYOUTS.get(world_name, WORLD_LAYOUTS["default"])
+    world = factory()
     profiles = create_default_agents()
-    for profile in profiles:
+    for i, profile in enumerate(profiles):
+        # Bei Nicht-Default-Layouts die Agenten auf definierte Starträume setzen.
+        if start_rooms is not None:
+            profile.location_id = start_rooms[i % len(start_rooms)]
         world.get_room(profile.location_id).occupants.add(profile.agent_id)
     return world, profiles, 0
 
@@ -86,6 +91,7 @@ async def run_terrarium(
     trace_path: str | None = None,
     prompt_variant: str = "baseline",
     memory_window: int = 3,
+    world_name: str = "default",
 ) -> None:
     """Starte eine NanoSim-Pet Simulation.
 
@@ -106,7 +112,7 @@ async def run_terrarium(
     console.print()
 
     # Welt + Profile bereitstellen (frisch oder aus Snapshot)
-    world, profiles, start_tick = _build_world_and_profiles(load_path)
+    world, profiles, start_tick = _build_world_and_profiles(load_path, world_name)
     router = _build_router(model, dialogue_model, base_url)
     if dialogue_model:
         console.print(
@@ -209,6 +215,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=3,
         help="Wie viele Erinnerungen im Prompt sichtbar sind",
     )
+    parser.add_argument(
+        "--world",
+        default="default",
+        help="Welt-Layout (default, corridor6, hub5, twin)",
+    )
     parser.add_argument("--ticks", type=int, default=5, help="Anzahl Ticks")
     parser.add_argument("--url", default="http://localhost:11434", help="Ollama URL")
     parser.add_argument(
@@ -261,6 +272,7 @@ def main() -> None:
             dialogue_model=args.dialogue_model,
             prompt_variant=args.prompt_variant,
             memory_window=args.memory_window,
+            world_name=args.world,
             load_path=args.load,
             save_path=args.save,
             trace_path=args.trace,

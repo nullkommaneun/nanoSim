@@ -89,6 +89,12 @@ class TestCliPersistenceArgs:
         assert defaults.prompt_variant == "baseline"
         assert defaults.memory_window == 3
 
+    def test_world_arg(self):
+        from nanosim.main import build_parser
+
+        assert build_parser().parse_args(["--world", "corridor6"]).world == "corridor6"
+        assert build_parser().parse_args([]).world == "default"
+
 
 class TestBuildRouter:
     def test_single_model_returns_llama_router(self):
