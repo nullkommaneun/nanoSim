@@ -1,0 +1,31 @@
+# nanoSim Experiment-Labor als systemd --user Service (Auto-Restart, sauberes Stop).
+# Installation siehe ops/OPERATIONS.md.
+#
+#   cp ops/nanosim-lab.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user start nanosim-lab        # startet die autonome Welle
+#   systemctl --user status nanosim-lab       # läuft es?
+#   systemctl --user stop nanosim-lab         # sauberes Beenden (SIGTERM)
+
+[Unit]
+Description=nanoSim Experiment-Labor (autonome Wellen)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/tom/machine/Sena/nanoSim
+# Welches Experiment: all | models | prompt | world | memory
+Environment=LAB_EXPERIMENT=all
+# Optional: Benachrichtigung bei Start/Ende/Crash (Nachricht kommt via stdin).
+#   Environment=LAB_NOTIFY_CMD=mail -s "nanoSim-Labor" thom.ehr@gmail.com
+ExecStart=/home/tom/machine/Sena/nanoSim/.venv/bin/python experiments/lab.py
+# Bei Absturz neu starten; der Lock + Resume aus runs.jsonl macht das gefahrlos.
+# Bei sauberem Ende (Ziel-n/Zeit erreicht, Exit 0) wird NICHT neu gestartet.
+Restart=on-failure
+RestartSec=30
+# Sanftes Beenden: SIGTERM → der Runner stoppt nach dem aktuellen Lauf.
+KillSignal=SIGTERM
+TimeoutStopSec=120
+
+[Install]
+WantedBy=default.target
