@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 # WICHTIG: Sagt Setuptools, dass unser Code im src-Ordner liegt
 package-dir = {"" = "src"}
-packages = ["nanosim", "nanosim.core", "nanosim.agents", "nanosim.llm", "nanosim.world"]
+packages = ["nanosim", "nanosim.core", "nanosim.agents", "nanosim.llm", "nanosim.world", "nanosim.lab"]
 include-package-data = true
 
 [project]
