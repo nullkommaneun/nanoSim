@@ -109,16 +109,41 @@ class TestPromptBuilder:
         assert "dog_01" in prompt
         assert "north" in prompt
 
-    def test_build_prompt_ignores_non_adjacent_other(self):
-        """Ein Tier in einem nicht angrenzenden Raum wird nicht wahrgenommen."""
+    def test_build_prompt_senses_distant_other_with_distance(self):
+        """Ein erreichbares Tier mehrere Räume entfernt wird mit Entfernung wahrgenommen."""
         from nanosim.world.rooms import create_default_world
         w = create_default_world()
         cat = AgentProfile(
             agent_id="cat_01", name="Whiskers", persona="Katze", location_id="kitchen",
         )
-        w.get_room("balcony").occupants.add("parrot_01")  # balcony grenzt nicht an kitchen
+        w.get_room("balcony").occupants.add("parrot_01")  # balcony ist 2 Räume entfernt
         prompt = build_prompt(cat, w)
-        assert "parrot_01" not in prompt
+        assert "parrot_01" in prompt
+        assert "2 Räume entfernt" in prompt
+
+    def test_first_step_directions_bfs(self):
+        """Breitensuche liefert Entfernung + Richtung des ersten Schritts."""
+        from nanosim.agents.prompt import _first_step_directions
+        from nanosim.world.rooms import create_default_world
+        w = create_default_world()
+        d = _first_step_directions(w, "kitchen")
+        assert d["garden"] == (1, "north")
+        assert d["living_room"] == (1, "east")
+        dist, direction = d["balcony"]
+        assert dist == 2
+        assert direction in ("north", "east")  # erster Schritt über garden/living_room
+
+    def test_build_prompt_ignores_unreachable_other(self):
+        """Ein Tier in einem nicht erreichbaren (isolierten) Raum wird nicht wahrgenommen."""
+        from nanosim.core.world import WorldRegistry
+        from nanosim.models import Room
+        w = WorldRegistry()
+        w.add_room(Room(room_id="a", name="A", exits={}))
+        w.add_room(Room(room_id="b", name="B", exits={}))  # keine Verbindung
+        cat = AgentProfile(agent_id="cat_01", name="W", persona="Katze", location_id="a")
+        w.get_room("b").occupants.add("dog_01")
+        prompt = build_prompt(cat, w)
+        assert "dog_01" not in prompt
 
     def test_system_prompt_has_social_drive(self, cat_profile):
         """Der System-Prompt gibt dem Tier einen geselligen Charakter."""
@@ -143,10 +168,10 @@ class TestPromptBuilder:
         assert "Bleib hier" not in prompt
 
     def test_build_prompt_urges_moving_when_alone_with_neighbor(self, cat_profile, world):
-        """Allein, aber jemand nebenan → klarer Aufruf, hinzugehen (mit Richtung)."""
+        """Allein, aber jemand erreichbar → klarer Aufruf, hinzugehen (mit Richtung)."""
         world.get_room("garden").occupants.add("dog_01")  # garden = north von kitchen
         prompt = build_prompt(cat_profile, world)
-        assert "geh zu ihm" in prompt.lower()
+        assert "geh zu den anderen" in prompt.lower()
         assert "north" in prompt
 
     def test_build_prompt_no_move_urge_when_together(self, cat_profile, world):
@@ -154,7 +179,7 @@ class TestPromptBuilder:
         world.get_room("kitchen").occupants.add("cat_01")
         world.get_room("kitchen").occupants.add("dog_01")
         prompt = build_prompt(cat_profile, world)
-        assert "geh zu ihm" not in prompt.lower()
+        assert "geh zu den anderen" not in prompt.lower()
         assert "Bleib hier" in prompt
 
 

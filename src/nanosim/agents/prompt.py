@@ -2,22 +2,52 @@
 
 from __future__ import annotations
 
+from collections import deque
+
 from nanosim.core.world import WorldRegistry
 from nanosim.models import AgentProfile
 
 
-def _nearby_others(agent: AgentProfile, world: WorldRegistry) -> list[str]:
-    """Tiere in direkt angrenzenden Räumen wahrnehmen (inkl. Richtung).
+def _first_step_directions(
+    world: WorldRegistry, start_id: str,
+) -> dict[str, tuple[int, str | None]]:
+    """Breitensuche über die Räume: für jeden erreichbaren Raum die Entfernung
+    (in Räumen) und die Richtung des ersten Schritts dorthin.
 
-    Wie ein Tier, das die anderen im Nachbarraum hört/riecht — genug, um
-    gezielt zu ihnen zu gehen. Weiter entfernte Tiere bleiben unbemerkt.
+    Das ist der „soziale Kompass": Auch wer mehrere Räume entfernt ist, kann so
+    Schritt für Schritt angesteuert werden.
     """
-    here = world.get_room(agent.location_id)
+    visited: dict[str, tuple[int, str | None]] = {start_id: (0, None)}
+    queue: deque[str] = deque([start_id])
+    while queue:
+        rid = queue.popleft()
+        dist, first_dir = visited[rid]
+        for direction, nxt in world.get_room(rid).exits.items():
+            if nxt in visited:
+                continue
+            # Im ersten Schritt ist die Richtung der Schritt selbst, danach
+            # erben wir die Richtung des allerersten Schritts.
+            visited[nxt] = (dist + 1, direction if dist == 0 else first_dir)
+            queue.append(nxt)
+    return visited
+
+
+def _sensed_others(agent: AgentProfile, world: WorldRegistry) -> list[str]:
+    """Alle erreichbaren Tiere wahrnehmen — mit Entfernung und Erst-Schritt-Richtung."""
+    dirs = _first_step_directions(world, agent.location_id)
     lines: list[str] = []
-    for direction, room_id in here.exits.items():
-        room = world.get_room(room_id)
+    for room in world.all_rooms():
+        if room.room_id == agent.location_id or room.room_id not in dirs:
+            continue
+        dist, direction = dirs[room.room_id]
         for other in sorted(o for o in room.occupants if o != agent.agent_id):
-            lines.append(f"{other} ist nebenan in {room.name} (Richtung {direction})")
+            if dist == 1:
+                lines.append(f"{other} ist nebenan in {room.name} (Richtung {direction})")
+            else:
+                lines.append(
+                    f"{other} ist in {room.name}, {dist} Räume entfernt "
+                    f"(geh Richtung {direction})"
+                )
     return lines
 
 
@@ -37,20 +67,20 @@ def build_prompt(agent: AgentProfile, world: WorldRegistry) -> str:
     memory_str = "; ".join(agent.memory[-3:]) if agent.memory else "keine"
     objects_str = ", ".join(room.objects) if room.objects else "keine"
     others_str = ", ".join(others) if others else "niemand"
-    nearby = _nearby_others(agent, world)
-    nearby_str = "; ".join(nearby) if nearby else "niemand in der Nähe"
+    sensed = _sensed_others(agent, world)
+    sensed_str = "; ".join(sensed) if sensed else "niemand erreichbar"
     inventory_str = ", ".join(agent.inventory) if agent.inventory else "leer"
 
     # Zwei situative Anstöße, die sich gegenseitig ausschließen:
     # - jemand IST da  → bleiben und reden (sonst brechen Gespräche ab)
-    # - allein, aber jemand NEBENAN → gezielt hingehen (sonst trifft man sich nie)
+    # - allein, aber jemand erreichbar → dem Kompass folgen (auch über mehrere Räume)
     if others:
         stay_urge = (
             "\n>> Bleib hier und sprich mit den anderen im Raum — geh jetzt NICHT weg!\n"
         )
-    elif nearby:
+    elif sensed:
         stay_urge = (
-            f"\n>> Du bist allein, aber nebenan ist jemand — geh zu ihm! ({nearby_str})\n"
+            f"\n>> Du bist allein — geh zu den anderen Tieren! Folge dem Kompass: {sensed_str}\n"
         )
     else:
         stay_urge = ""
@@ -60,7 +90,7 @@ def build_prompt(agent: AgentProfile, world: WorldRegistry) -> str:
         f"Ort: {room.name} — {room.description}\n"
         f"Objekte hier: {objects_str}\n"
         f"Andere hier: {others_str}\n"
-        f"In der Nähe: {nearby_str}\n"
+        f"Andere Tiere (Kompass): {sensed_str}\n"
         f"Ausgänge: {exits if exits else 'keine'}\n"
         f"{stay_urge}\n"
         f"Deine Stats: Energie={agent.stats.stamina:.1f}, "
