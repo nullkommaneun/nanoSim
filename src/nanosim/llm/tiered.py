@@ -30,9 +30,10 @@ class TwoTierRouter:
         decision_model: str = DEFAULT_MODEL,
         dialogue_model: str = DEFAULT_MODEL,
         base_url: str = "http://localhost:11434",
+        seed: int | None = None,
     ) -> None:
-        self._decider = LlamaRouter(model=decision_model, base_url=base_url)
-        self._talker = LlamaRouter(model=dialogue_model, base_url=base_url)
+        self._decider = LlamaRouter(model=decision_model, base_url=base_url, seed=seed)
+        self._talker = LlamaRouter(model=dialogue_model, base_url=base_url, seed=seed)
         # Anzeigename für Logs/Trace
         self.model = f"{decision_model} (Entscheidung) + {dialogue_model} (Dialog)"
 

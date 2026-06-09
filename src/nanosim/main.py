@@ -34,6 +34,7 @@ def _build_router(
     model: str,
     dialogue_model: str | None,
     base_url: str,
+    seed: int | None = None,
 ) -> LlamaRouter | TwoTierRouter:
     """Den passenden Router bauen: Zwei-Stufen-Modus bei gesetztem dialogue_model,
     sonst der klassische Einzel-Modell-Router."""
@@ -42,8 +43,9 @@ def _build_router(
             decision_model=model,
             dialogue_model=dialogue_model,
             base_url=base_url,
+            seed=seed,
         )
-    return LlamaRouter(model=model, base_url=base_url)
+    return LlamaRouter(model=model, base_url=base_url, seed=seed)
 
 
 def _build_world_and_profiles(
@@ -92,6 +94,7 @@ async def run_terrarium(
     prompt_variant: str = "baseline",
     memory_window: int = 3,
     world_name: str = "default",
+    seed: int | None = None,
 ) -> None:
     """Starte eine NanoSim-Pet Simulation.
 
@@ -113,7 +116,7 @@ async def run_terrarium(
 
     # Welt + Profile bereitstellen (frisch oder aus Snapshot)
     world, profiles, start_tick = _build_world_and_profiles(load_path, world_name)
-    router = _build_router(model, dialogue_model, base_url)
+    router = _build_router(model, dialogue_model, base_url, seed=seed)
     if dialogue_model:
         console.print(
             f"Dialog-Modell: [cyan]{dialogue_model}[/cyan] (Zwei-Stufen-Modus)"
@@ -220,6 +223,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="default",
         help="Welt-Layout (default, corridor6, hub5, twin)",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Ollama-Seed für reproduzierbarere Läufe (Vielfalt bleibt)",
+    )
     parser.add_argument("--ticks", type=int, default=5, help="Anzahl Ticks")
     parser.add_argument("--url", default="http://localhost:11434", help="Ollama URL")
     parser.add_argument(
@@ -273,6 +282,7 @@ def main() -> None:
             prompt_variant=args.prompt_variant,
             memory_window=args.memory_window,
             world_name=args.world,
+            seed=args.seed,
             load_path=args.load,
             save_path=args.save,
             trace_path=args.trace,

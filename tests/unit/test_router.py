@@ -198,6 +198,23 @@ class TestThink:
         assert fmt == AgentAction.model_json_schema()
 
     @pytest.mark.asyncio
+    async def test_seed_passed_in_options(self):
+        """Mit Seed wird er reproduzierbar in den Ollama-Optionen übergeben."""
+        r = LlamaRouter(model="llama3", seed=42)
+        mock_chat = AsyncMock(return_value={"message": {"content": '{"action": "idle"}'}})
+        with patch.object(r._client, "chat", mock_chat):
+            await r.think("x", AgentAction)
+        assert mock_chat.call_args.kwargs["options"]["seed"] == 42
+
+    @pytest.mark.asyncio
+    async def test_no_options_without_seed(self, router: LlamaRouter):
+        """Ohne Seed werden keine festen Optionen erzwungen (Vielfalt bleibt)."""
+        mock_chat = AsyncMock(return_value={"message": {"content": '{"action": "idle"}'}})
+        with patch.object(router._client, "chat", mock_chat):
+            await router.think("x", AgentAction)
+        assert "options" not in mock_chat.call_args.kwargs
+
+    @pytest.mark.asyncio
     async def test_retry_also_uses_format(self, router: LlamaRouter):
         """Auch der Retry erzwingt das Schema."""
         bad = {"message": {"content": "kaputt"}}

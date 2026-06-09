@@ -45,10 +45,15 @@ class LlamaRouter:
         self,
         model: str = DEFAULT_MODEL,
         base_url: str = "http://localhost:11434",
+        seed: int | None = None,
+        request_timeout: float = 180.0,
     ) -> None:
-        self._client = ollama.AsyncClient(host=base_url)
+        # request_timeout: inneres Timeout, damit ein hängender/OOM-Call nicht
+        # bis zum äußeren Prozess-Timeout (30 min) blockiert.
+        self._client = ollama.AsyncClient(host=base_url, timeout=request_timeout)
         self._semaphore = asyncio.Semaphore(1)
         self.model = model
+        self.seed = seed
 
     async def think(
         self,
@@ -108,12 +113,12 @@ class LlamaRouter:
         bewusst beim Modell-Default — wir wollen Verhaltens-Vielfalt, nicht
         maximale Determiniertheit.
         """
+        kwargs: dict = {"model": self.model, "messages": messages, "format": schema}
+        # Seed nur setzen, wenn gewünscht — ohne Seed bleibt die Vielfalt erhalten.
+        if self.seed is not None:
+            kwargs["options"] = {"seed": self.seed}
         async with self._semaphore:
-            response = await self._client.chat(
-                model=self.model,
-                messages=messages,
-                format=schema,
-            )
+            response = await self._client.chat(**kwargs)
         return response["message"]["content"]
 
     @staticmethod
